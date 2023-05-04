@@ -1,4 +1,4 @@
-apiVersion: goalert.openshift.io.managed.openshift.io/v1alpha1
+apiVersion: goalert.managed.openshift.io/v1alpha1
 kind: GoalertIntegration
 metadata:
   labels:

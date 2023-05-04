@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,9 +28,17 @@ import (
 type GoalertIntegrationSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of GoalertIntegration. Edit goalertintegration_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// A label selector used to find which clusterdeployment CRs receive a
+	// Goalert integration based on this configuration.
+	ClusterDeploymentSelector metav1.LabelSelector `json:"clusterDeploymentSelector"`
+	// Name and namespace in the target cluster where the secret is synced.
+	TargetSecretRef corev1.SecretReference `json:"targetSecretRef"`
+	// ID of a High Escalation Policy in Goalert.
+	HighEscalationPolicy string `json:"highEscalationPolicy"`
+	// ID of a Low Escalation Policy in Goalert.
+	LowEscalationPolicy string `json:"lowEscalationPolicy"`
+	// Prefix to set on the Goalert Service name.
+	ServicePrefix string `json:"servicePrefix"`
 }
 
 // GoalertIntegrationStatus defines the observed state of GoalertIntegration
