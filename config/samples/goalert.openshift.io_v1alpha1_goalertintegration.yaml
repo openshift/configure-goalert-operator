@@ -1,0 +1,12 @@
+apiVersion: goalert.openshift.io.managed.openshift.io/v1alpha1
+kind: GoalertIntegration
+metadata:
+  labels:
+    app.kubernetes.io/name: goalertintegration
+    app.kubernetes.io/instance: goalertintegration-sample
+    app.kubernetes.io/part-of: configure-goalert-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: configure-goalert-operator
+  name: goalertintegration-sample
+spec:
+  # TODO(user): Add fields here
