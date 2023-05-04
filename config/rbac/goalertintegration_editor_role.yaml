@@ -1,0 +1,31 @@
+# permissions for end users to edit goalertintegrations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: goalertintegration-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: configure-goalert-operator
+    app.kubernetes.io/part-of: configure-goalert-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: goalertintegration-editor-role
+rules:
+- apiGroups:
+  - goalert.openshift.io.managed.openshift.io
+  resources:
+  - goalertintegrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - goalert.openshift.io.managed.openshift.io
+  resources:
+  - goalertintegrations/status
+  verbs:
+  - get
