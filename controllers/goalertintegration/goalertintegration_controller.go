@@ -28,13 +28,14 @@ import (
 
 	"github.com/go-logr/logr"
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
-	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	util "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
 	GoalertFinalizerPrefix = "goalert.managed.openshift.io/goalert-"
+	ControllerName         = "goalertintegration"
 )
 
 // GoalertIntegrationReconciler reconciles a GoalertIntegration object
@@ -58,11 +59,11 @@ type GoalertIntegrationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	r.reqLogger = log.FromContext(ctx).WithName("controller").WithName(ControllerName)
 
-	// TODO(user): your logic here
+	// Fetch the GoalertIntegration instance
 	gi := &goalertv1alpha1.GoalertIntegration{}
-	err := r.Get(context.TODO(), req.NamespacedName, gi)
+	err := r.Get(ctx, req.NamespacedName, gi)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -75,7 +76,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// fetch all CDs so we can inspect if they're dropped out of the matching CD list
-	allClusterDeployments, err := r.getAllClusterDeployments()
+	allClusterDeployments, err := r.getAllClusterDeployments(ctx)
 	if err != nil {
 		return r.requeueOnErr(err)
 	}
@@ -96,7 +97,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if gi.DeletionTimestamp != nil {
 		for i := range matchingClusterDeployments.Items {
 			clusterdeployment := allClusterDeployments.Items[i]
-			if utils.HasFinalizer(&clusterdeployment, goalertFinalizer) {
+			if util.ContainsFinalizer(&clusterdeployment, goalertFinalizer) {
 				// Handle deletion of cluster OSD-16305
 			}
 		}
@@ -105,9 +106,9 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func (r *GoalertIntegrationReconciler) getAllClusterDeployments() (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
-	err := r.List(context.TODO(), allClusterDeployments, &client.ListOptions{})
+	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
 	return allClusterDeployments, err
 }
 
