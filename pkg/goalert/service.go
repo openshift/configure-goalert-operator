@@ -12,11 +12,11 @@ import (
 // Endpoint can't be committed to public repo
 // Needs to be refactored to retrieve Goalert URL from CM or CR
 const (
-	graphqlApiEndpoint = ""
+	GoalertApiEndpoint = ""
 )
 
 func defaultURL() *url.URL {
-	url, _ := url.Parse(graphqlApiEndpoint)
+	url, _ := url.Parse(GoalertApiEndpoint + "/api/graphql")
 	return url
 }
 
@@ -39,7 +39,7 @@ type Data struct {
 }
 
 // Wrapper func to help send the http request
-func (c *graphqlClient) newRequest(method, path string, body interface{}) (*Data, error) {
+func (c *graphqlClient) newRequest(method, path string, body interface{}, sessionCookie *http.Cookie) (*Data, error) {
 
 	var respData Data
 	rel := &url.URL{Path: path}
@@ -61,7 +61,7 @@ func (c *graphqlClient) newRequest(method, path string, body interface{}) (*Data
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "golang httpClient")
+	req.AddCookie(sessionCookie)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -81,7 +81,7 @@ func (c *graphqlClient) newRequest(method, path string, body interface{}) (*Data
 }
 
 // Creates new service
-func (c *graphqlClient) CreateService(data *Data) (string, error) {
+func (c *graphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (string, error) {
 
 	createClusterSvcData := map[string]string{
 		"mutation": fmt.Sprintf(
@@ -95,7 +95,7 @@ func (c *graphqlClient) CreateService(data *Data) (string, error) {
 			}`, data.Name, data.Description, data.Favorite, data.EscalationPolicyID),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", createClusterSvcData)
+	respData, err := c.newRequest("POST", "/api/graphql", createClusterSvcData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -103,7 +103,7 @@ func (c *graphqlClient) CreateService(data *Data) (string, error) {
 }
 
 // Creates new integration key
-func (c *graphqlClient) CreateIntegrationKey(data *Data) (string, error) {
+func (c *graphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error) {
 
 	createIntegrationKeyData := map[string]string{
 		"mutation": fmt.Sprintf(`{
@@ -115,7 +115,7 @@ func (c *graphqlClient) CreateIntegrationKey(data *Data) (string, error) {
 			}`, data.Id, data.Type, data.Name),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", createIntegrationKeyData)
+	respData, err := c.newRequest("POST", "/api/graphql", createIntegrationKeyData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -123,7 +123,7 @@ func (c *graphqlClient) CreateIntegrationKey(data *Data) (string, error) {
 }
 
 // Creates new heartbeatmonitor
-func (c *graphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
+func (c *graphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.Cookie) (string, error) {
 
 	createHeartbeatMonitorData := map[string]string{
 		"mutation": fmt.Sprintf(`{
@@ -135,7 +135,7 @@ func (c *graphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
 		}`, data.Id, data.Name, data.Timeout),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", createHeartbeatMonitorData)
+	respData, err := c.newRequest("POST", "/api/graphql", createHeartbeatMonitorData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -143,7 +143,7 @@ func (c *graphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
 }
 
 // Deletes service
-func (c *graphqlClient) DeleteService(data *Data) error {
+func (c *graphqlClient) DeleteService(data *Data, sessionCookie *http.Cookie) error {
 	deleteSvcData := map[string]string{
 		"mutation": fmt.Sprintf(`{
 			deleteAll(input: {
@@ -153,7 +153,7 @@ func (c *graphqlClient) DeleteService(data *Data) error {
 		}`, data.Id),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", deleteSvcData)
+	respData, err := c.newRequest("POST", "/api/graphql", deleteSvcData, sessionCookie)
 	if err != nil {
 		return err
 	}

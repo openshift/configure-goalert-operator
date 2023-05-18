@@ -17,7 +17,10 @@ limitations under the License.
 package goalertintegration
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"net/http"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +31,8 @@ import (
 
 	"github.com/go-logr/logr"
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
+	"github.com/openshift/configure-goalert-operator/config"
+	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	util "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -87,11 +92,46 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.requeueOnErr(err)
 	}
 
-	// Add authentication to GraphQL API OSD-16252
+	// Load creds for Goalert authentication
+	goalertUsername, err := utils.LoadSecretData(
+		r.Client,
+		gi.Spec.GoalertCredsSecretRef.Name,
+		gi.Spec.GoalertCredsSecretRef.Namespace,
+		config.GoalertUsernameSecretKey,
+	)
 	if err != nil {
-		r.reqLogger.Error(err, "Failed to load Goalert API key from Secret listed in GoalertIntegration CR")
+		r.reqLogger.Error(err, "Failed to load Goalert username key from Secret listed in GoalertIntegration CR")
+	}
+	goalertPassword, err := utils.LoadSecretData(
+		r.Client,
+		gi.Spec.GoalertCredsSecretRef.Name,
+		gi.Spec.GoalertCredsSecretRef.Namespace,
+		config.GoalertPasswordSecretKey,
+	)
+	if err != nil {
+		r.reqLogger.Error(err, "Failed to load Goalert password key from Secret listed in GoalertIntegration CR")
 	}
 
+	// Create HTTP POST request for authentication
+	authUrl := GoalertApiEndpoint + "/api/v2/identity/providers/basic "
+	reqBody := fmt.Sprintf("username=%s&password=%s", goalertUsername, goalertPassword)
+	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBuffer([]byte(reqBody)))
+	if err != nil {
+		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
+	}
+	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded'")
+	authReq.Header.Set("Referer", ""+"/alerts")
+	client := &http.Client{}
+	authResp, err := client.Do(authReq)
+	if err != nil {
+		r.reqLogger.Error(err, "Error sending HTTP request:", err)
+	}
+	defer authResp.Body.Close()
+	// Read session cookie from authentication response headers
+	sessionCookie, err := authResp.Request.Cookie("goalert_session.2")
+	if err != nil {
+		r.reqLogger.Error(err, "Error extracting goalert_session.2 cookie")
+	}
 	goalertFinalizer := GoalertFinalizerPrefix + gi.Name
 	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {

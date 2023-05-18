@@ -39,6 +39,8 @@ type GoalertIntegrationSpec struct {
 	LowEscalationPolicy string `json:"lowEscalationPolicy"`
 	// Prefix to set on the Goalert Service name.
 	ServicePrefix string `json:"servicePrefix"`
+	// Reference to the secret containing Goalert cred
+	GoalertCredsSecretRef corev1.SecretReference `json:"goalertCredsSecretRef"`
 }
 
 // GoalertIntegrationStatus defines the observed state of GoalertIntegration

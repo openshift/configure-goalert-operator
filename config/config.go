@@ -1,8 +1,10 @@
 package config
 
 const (
-	OperatorName      string = "configure-goalert-operator"
-	OperatorNamespace string = "openshift-configure-goalert-operator"
+	OperatorName             string = "configure-goalert-operator"
+	OperatorNamespace        string = "openshift-configure-goalert-operator"
+	GoalertUsernameSecretKey string = "USERNAME"
+	GoalertPasswordSecretKey string = "PASSWORD"
 )
 
 // Name is used to generate the name of secondary resources (SyncSets,
