@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	goalertopenshiftiov1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
+	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(goalertopenshiftiov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(goalertv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

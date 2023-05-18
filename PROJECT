@@ -12,7 +12,7 @@ resources:
     namespaced: true
   controller: true
   domain: managed.openshift.io
-  group: goalert.openshift.io
+  group: goalert
   kind: GoalertIntegration
   path: github.com/openshift/configure-goalert-operator/api/v1alpha1
   version: v1alpha1

@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: goalertintegrations.goalert.openshift.io.managed.openshift.io
+  name: goalertintegrations.goalert.managed.openshift.io
 spec:
-  group: goalert.openshift.io.managed.openshift.io
+  group: goalert.managed.openshift.io
   names:
     kind: GoalertIntegration
     listKind: GoalertIntegrationList
