@@ -112,26 +112,18 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.reqLogger.Error(err, "Failed to load Goalert password key from Secret listed in GoalertIntegration CR")
 	}
 
-	// Create HTTP POST request for authentication
-	authUrl := GoalertApiEndpoint + "/api/v2/identity/providers/basic "
-	reqBody := fmt.Sprintf("username=%s&password=%s", goalertUsername, goalertPassword)
-	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBuffer([]byte(reqBody)))
+	// Log in to Goalert
+	authenticateGoalert, err := r.authGoalert(goalertUsername, goalertPassword)
 	if err != nil {
-		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
+		r.reqLogger.Error(err, "Failed to auth to Goalert")
 	}
-	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded'")
-	authReq.Header.Set("Referer", ""+"/alerts")
-	client := &http.Client{}
-	authResp, err := client.Do(authReq)
-	if err != nil {
-		r.reqLogger.Error(err, "Error sending HTTP request:", err)
-	}
-	defer authResp.Body.Close()
+
 	// Read session cookie from authentication response headers
-	sessionCookie, err := authResp.Request.Cookie("goalert_session.2")
+	sessionCookie, err := authenticateGoalert.Request.Cookie("goalert_session.2")
 	if err != nil {
 		r.reqLogger.Error(err, "Error extracting goalert_session.2 cookie")
 	}
+
 	goalertFinalizer := GoalertFinalizerPrefix + gi.Name
 	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
@@ -146,6 +138,28 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
+func (r *GoalertIntegrationReconciler) authGoalert(username string, password string) (*http.Response, error) {
+
+	// Create HTTP POST request for authentication
+	authUrl := GoalertApiEndpoint + "/api/v2/identity/providers/basic "
+	reqBody := fmt.Sprintf("username=%s&password=%s", username, password)
+	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBuffer([]byte(reqBody)))
+	if err != nil {
+		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
+	}
+
+	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded'")
+	authReq.Header.Set("Referer", GoalertApiEndpoint+"/alerts")
+	client := &http.Client{}
+
+	authResp, err := client.Do(authReq)
+	if err != nil {
+		r.reqLogger.Error(err, "Error sending HTTP request:", err)
+	}
+
+	defer authResp.Body.Close()
+	return authResp, nil
+}
 func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
