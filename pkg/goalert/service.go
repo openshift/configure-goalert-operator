@@ -20,6 +20,14 @@ func defaultURL() *url.URL {
 	return url
 }
 
+// Client is a wrapper interface for the graphqlClient to allow for easier testing
+type Client interface {
+	CreateService(data *Data, sessionCookie *http.Cookie) (string, error)
+	CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error)
+	CreateHeartbeatMonitor(data *Data, sessionCookie *http.Cookie) (string, error)
+	DeleteService(data *Data, sessionCookie *http.Cookie)
+}
+
 // Wrapper for HTTP client
 type graphqlClient struct {
 	BaseURL    *url.URL
