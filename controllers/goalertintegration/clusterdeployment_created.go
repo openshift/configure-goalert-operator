@@ -64,10 +64,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 
 	highSvcID, err := gclient.CreateService(dataHighSvc, sessionCookie)
 	if err != nil {
+		r.reqLogger.Error(err, "Failed to create service for High alerts")
 		return err
 	}
 	lowSvcID, err := gclient.CreateService(dataLowSvc, sessionCookie)
 	if err != nil {
+		r.reqLogger.Error(err, "Failed to create service for Low alerts")
 		return err
 	}
 
@@ -85,9 +87,11 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 
 	highIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyHighSvc, sessionCookie)
 	if err != nil {
+		r.reqLogger.Error(err, "Failed to create integration key for high alerts")
 		return err
 	}
 	lowIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyLowSvc, sessionCookie)
+	r.reqLogger.Error(err, "Failed to create integration key for low alerts")
 	if err != nil {
 		return err
 	}
@@ -101,6 +105,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 
 	heartbeatMonitorID, err := gclient.CreateHeartbeatMonitor(dataHeartbeatMonitor, sessionCookie)
 	if err != nil {
+		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
 	}
 
@@ -147,7 +152,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 			string(sc.Data[config.GoalertHeartbeatSecretKey]) != heartbeatMonitorID {
 			r.reqLogger.Info("Secret data have changed, delete the secret first")
 			if err = r.Delete(context.TODO(), secret); err != nil {
-				log.Info("failed to delete existing pd secret")
+				log.Info("failed to delete existing goalert secret")
 				return err
 			}
 			r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
