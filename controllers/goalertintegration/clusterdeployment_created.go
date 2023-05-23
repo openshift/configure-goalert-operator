@@ -110,7 +110,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 	}
 
 	// save config map
-	newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, highIntKeyID, lowIntKeyID, highEscalationPolicyID, lowEscalationPolicyID)
+	newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, highEscalationPolicyID, lowEscalationPolicyID)
 	if err = controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on configmap")
 		return err
