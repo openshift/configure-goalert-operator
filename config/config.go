@@ -8,6 +8,7 @@ const (
 	GoalertHighSecretKey      string = "GOALERT_URL_HIGH"
 	GoalertLowSecretKey       string = "GOALERT_URL_LOW"
 	GoalertHeartbeatSecretKey string = "GOALERT_HEARTBEAT"
+	GoalertApiEndpointEnvVar  string = "GOALERT_ENDPOINT_URL"
 	GoalertFinalizerPrefix    string = "goalert.managed.openshift.io/goalert-"
 	ConfigMapSuffix           string = "-goalert-config"
 	SecretSuffix              string = "-goalert-secret"

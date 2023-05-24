@@ -7,16 +7,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-)
+	"os"
 
-// Endpoint can't be committed to public repo
-// Needs to be refactored to retrieve Goalert URL from CM or CR
-const (
-	GoalertApiEndpoint = ""
+	"github.com/openshift/configure-goalert-operator/config"
 )
 
 func defaultURL() *url.URL {
-	url, _ := url.Parse(GoalertApiEndpoint + "/api/graphql")
+	url, _ := url.Parse(os.Getenv(config.GoalertApiEndpointEnvVar) + "/api/graphql")
 	return url
 }
 
