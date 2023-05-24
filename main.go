@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
-	"github.com/openshift/configure-goalert-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
