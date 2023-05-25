@@ -12,11 +12,6 @@ import (
 	"github.com/openshift/configure-goalert-operator/config"
 )
 
-func defaultURL() *url.URL {
-	url, _ := url.Parse(os.Getenv(config.GoalertApiEndpointEnvVar) + "/api/graphql")
-	return url
-}
-
 // Client is a wrapper interface for the graphqlClient to allow for easier testing
 type Client interface {
 	CreateService(data *Data, sessionCookie *http.Cookie) (string, error)
@@ -44,11 +39,10 @@ type Data struct {
 }
 
 // Wrapper func to help send the http request
-func (c *graphqlClient) newRequest(method, path string, body interface{}, sessionCookie *http.Cookie) (*Data, error) {
+func (c *graphqlClient) newRequest(method string, body interface{}, sessionCookie *http.Cookie) (*Data, error) {
 
 	var respData Data
-	rel := &url.URL{Path: path}
-	u := c.BaseURL.ResolveReference(rel)
+	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
 	var buf io.ReadWriter
 
 	if body != nil {
@@ -58,7 +52,7 @@ func (c *graphqlClient) newRequest(method, path string, body interface{}, sessio
 			return nil, err
 		}
 	}
-	req, err := http.NewRequest(method, u.String(), buf)
+	req, err := http.NewRequest(method, goalertApiEndpoint+"/api/graphql", buf)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +94,7 @@ func (c *graphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (s
 			}`, data.Name, data.Description, data.Favorite, data.EscalationPolicyID),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", createClusterSvcData, sessionCookie)
+	respData, err := c.newRequest("POST", createClusterSvcData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -120,7 +114,7 @@ func (c *graphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Coo
 			}`, data.Id, data.Type, data.Name),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", createIntegrationKeyData, sessionCookie)
+	respData, err := c.newRequest("POST", createIntegrationKeyData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +134,7 @@ func (c *graphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.C
 		}`, data.Id, data.Name, data.Timeout),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", createHeartbeatMonitorData, sessionCookie)
+	respData, err := c.newRequest("POST", createHeartbeatMonitorData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +152,7 @@ func (c *graphqlClient) DeleteService(data *Data, sessionCookie *http.Cookie) er
 		}`, data.Id),
 	}
 
-	respData, err := c.newRequest("POST", "/api/graphql", deleteSvcData, sessionCookie)
+	respData, err := c.newRequest("POST", deleteSvcData, sessionCookie)
 	if err != nil {
 		return err
 	}

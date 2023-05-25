@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
+	"github.com/openshift/configure-goalert-operator/controllers/goalertintegration"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -88,7 +89,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.GoalertIntegrationReconciler{
+	if err = (&goalertintegration.GoalertIntegrationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

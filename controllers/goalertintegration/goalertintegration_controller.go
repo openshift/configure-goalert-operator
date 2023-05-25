@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,7 +33,6 @@ import (
 	"github.com/go-logr/logr"
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
-	"github.com/openshift/configure-goalert-operator/pkg/goalert"
 	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -150,7 +150,8 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *GoalertIntegrationReconciler) authGoalert(username string, password string) (*http.Response, error) {
 
 	// Create HTTP POST request for authentication
-	authUrl := goalert.GoalertApiEndpoint + "/api/v2/identity/providers/basic "
+	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
+	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic "
 	reqBody := fmt.Sprintf("username=%s&password=%s", username, password)
 	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBuffer([]byte(reqBody)))
 	if err != nil {
@@ -158,7 +159,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	}
 
 	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded'")
-	authReq.Header.Set("Referer", goalert.GoalertApiEndpoint+"/alerts")
+	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 	client := &http.Client{}
 
 	authResp, err := client.Do(authReq)
