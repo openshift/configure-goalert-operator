@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	util "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // Scaffold of func to handle creation of new clusters OSD-16306
@@ -39,9 +38,9 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		lowEscalationPolicyID  string = gi.Spec.LowEscalationPolicy
 	)
 
-	if !util.ContainsFinalizer(cd, finalizer) {
+	if !controllerutil.ContainsFinalizer(cd, finalizer) {
 		baseToPatch := client.MergeFrom(cd.DeepCopy())
-		util.AddFinalizer(cd, finalizer)
+		controllerutil.AddFinalizer(cd, finalizer)
 		return r.Patch(context.TODO(), cd, baseToPatch)
 	}
 
@@ -147,9 +146,9 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		if err != nil {
 			return nil
 		}
-		if string(sc.Data[config.GoalertHighSecretKey]) != highIntKeyID ||
-			string(sc.Data[config.GoalertLowSecretKey]) != lowIntKeyID ||
-			string(sc.Data[config.GoalertHeartbeatSecretKey]) != heartbeatMonitorID {
+		if string(sc.Data[config.GoalertHighIntKey]) != highIntKeyID ||
+			string(sc.Data[config.GoalertLowIntKey]) != lowIntKeyID ||
+			string(sc.Data[config.GoalertHeartbeatIntKey]) != heartbeatMonitorID {
 			r.reqLogger.Info("Secret data have changed, delete the secret first")
 			if err = r.Delete(context.TODO(), secret); err != nil {
 				log.Info("failed to delete existing goalert secret")

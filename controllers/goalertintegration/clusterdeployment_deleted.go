@@ -5,7 +5,7 @@ import (
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 )
 
-func (r *GoalertIntegrationReconciler) handleDelete(gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
+func (r *GoalertIntegrationReconciler) HandleDelete(gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	if cd == nil {
 		return nil
@@ -15,6 +15,6 @@ func (r *GoalertIntegrationReconciler) handleDelete(gi *goalertv1alpha1.GoalertI
 
 }
 
-func getSvcId(cd hivev1.ClusterDeployment, isCommercial bool) string {
+func GetSvcId(cd hivev1.ClusterDeployment, isCommercial bool) string {
 	return ""
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/openshift/configure-goalert-operator/config"
 )
 
-// Client is a wrapper interface for the graphqlClient to allow for easier testing
+// Client is a wrapper interface for the GraphqlClient to allow for easier testing
 type Client interface {
 	CreateService(data *Data, sessionCookie *http.Cookie) (string, error)
 	CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error)
@@ -21,7 +21,7 @@ type Client interface {
 }
 
 // Wrapper for HTTP client
-type graphqlClient struct {
+type GraphqlClient struct {
 	BaseURL    *url.URL
 	httpClient *http.Client
 }
@@ -39,7 +39,7 @@ type Data struct {
 }
 
 // Wrapper func to help send the http request
-func (c *graphqlClient) newRequest(method string, body interface{}, sessionCookie *http.Cookie) (*Data, error) {
+func (c *GraphqlClient) NewRequest(method string, body interface{}, sessionCookie *http.Cookie) (*Data, error) {
 
 	var respData Data
 	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
@@ -80,7 +80,7 @@ func (c *graphqlClient) newRequest(method string, body interface{}, sessionCooki
 }
 
 // Creates new service
-func (c *graphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (string, error) {
+func (c *GraphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (string, error) {
 
 	createClusterSvcData := map[string]string{
 		"mutation": fmt.Sprintf(
@@ -94,7 +94,7 @@ func (c *graphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (s
 			}`, data.Name, data.Description, data.Favorite, data.EscalationPolicyID),
 	}
 
-	respData, err := c.newRequest("POST", createClusterSvcData, sessionCookie)
+	respData, err := c.NewRequest("POST", createClusterSvcData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -102,7 +102,7 @@ func (c *graphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (s
 }
 
 // Creates new integration key
-func (c *graphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error) {
+func (c *GraphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error) {
 
 	createIntegrationKeyData := map[string]string{
 		"mutation": fmt.Sprintf(`{
@@ -114,7 +114,7 @@ func (c *graphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Coo
 			}`, data.Id, data.Type, data.Name),
 	}
 
-	respData, err := c.newRequest("POST", createIntegrationKeyData, sessionCookie)
+	respData, err := c.NewRequest("POST", createIntegrationKeyData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -122,7 +122,7 @@ func (c *graphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Coo
 }
 
 // Creates new heartbeatmonitor
-func (c *graphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.Cookie) (string, error) {
+func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.Cookie) (string, error) {
 
 	createHeartbeatMonitorData := map[string]string{
 		"mutation": fmt.Sprintf(`{
@@ -134,7 +134,7 @@ func (c *graphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.C
 		}`, data.Id, data.Name, data.Timeout),
 	}
 
-	respData, err := c.newRequest("POST", createHeartbeatMonitorData, sessionCookie)
+	respData, err := c.NewRequest("POST", createHeartbeatMonitorData, sessionCookie)
 	if err != nil {
 		return "", err
 	}
@@ -142,7 +142,7 @@ func (c *graphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.C
 }
 
 // Deletes service
-func (c *graphqlClient) DeleteService(data *Data, sessionCookie *http.Cookie) error {
+func (c *GraphqlClient) DeleteService(data *Data, sessionCookie *http.Cookie) error {
 	deleteSvcData := map[string]string{
 		"mutation": fmt.Sprintf(`{
 			deleteAll(input: {
@@ -152,7 +152,7 @@ func (c *graphqlClient) DeleteService(data *Data, sessionCookie *http.Cookie) er
 		}`, data.Id),
 	}
 
-	respData, err := c.newRequest("POST", deleteSvcData, sessionCookie)
+	respData, err := c.NewRequest("POST", deleteSvcData, sessionCookie)
 	if err != nil {
 		return err
 	}

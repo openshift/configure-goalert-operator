@@ -53,9 +53,9 @@ func GenerateGoalertSecret(namespace string, name string, goalertHighIntegration
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			config.GoalertHighSecretKey:      []byte(goalertHighIntegrationKey),
-			config.GoalertLowSecretKey:       []byte(goalertLowIntegrationKey),
-			config.GoalertHeartbeatSecretKey: []byte(heartbeatKey),
+			config.GoalertHighIntKey:      []byte(goalertHighIntegrationKey),
+			config.GoalertLowIntKey:       []byte(goalertLowIntegrationKey),
+			config.GoalertHeartbeatIntKey: []byte(heartbeatKey),
 		},
 	}
 
