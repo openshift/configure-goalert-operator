@@ -33,6 +33,7 @@ import (
 	"github.com/go-logr/logr"
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
+	"github.com/openshift/configure-goalert-operator/pkg/goalert"
 	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,6 +69,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Fetch the GoalertIntegration instance
 	gi := &goalertv1alpha1.GoalertIntegration{}
+	var gclient goalert.Client
 	err := r.Get(ctx, req.NamespacedName, gi)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -138,7 +140,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for _, cd := range matchingClusterDeployments.Items {
 		cd := cd
 		if cd.DeletionTimestamp == nil {
-			if err := r.handleCreate(gi, sessionCookie, &cd); err != nil {
+			if err := r.handleCreate(gclient, gi, sessionCookie, &cd); err != nil {
 				r.reqLogger.Error(err, "Failing to register cluster with Goalert")
 			}
 		}

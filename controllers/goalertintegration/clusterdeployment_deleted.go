@@ -11,9 +11,10 @@ func (r *GoalertIntegrationReconciler) handleDelete(gi *goalertv1alpha1.GoalertI
 		return nil
 	}
 	// Retrieve service ID for input for DeleteService(data)
+	return nil
 
 }
 
 func getSvcId(cd hivev1.ClusterDeployment, isCommercial bool) string {
-
+	return ""
 }
