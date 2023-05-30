@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +37,6 @@ import (
 	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	util "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -68,6 +68,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Fetch the GoalertIntegration instance
 	gi := &goalertv1alpha1.GoalertIntegration{}
+	var gclient goalert.Client
 	err := r.Get(ctx, req.NamespacedName, gi)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -81,13 +82,13 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// fetch all CDs so we can inspect if they're dropped out of the matching CD list
-	allClusterDeployments, err := r.getAllClusterDeployments(ctx)
-	if err != nil {
-		return r.requeueOnErr(err)
-	}
+	// allClusterDeployments, err := r.getAllClusterDeployments(ctx)
+	// if err != nil {
+	// 	return r.requeueOnErr(err)
+	// }
 
 	// Fetch ClusterDeployments matching the GI's ClusterDeployment label selector
-	matchingClusterDeployments, err := r.getMatchingClusterDeployments(gi)
+	matchingClusterDeployments, err := r.GetMatchingClusterDeployments(gi)
 	if err != nil {
 		return r.requeueOnErr(err)
 	}
@@ -124,21 +125,22 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.reqLogger.Error(err, "Error extracting goalert_session.2 cookie")
 	}
 
-	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
-	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
-	if gi.DeletionTimestamp != nil {
-		for i := range matchingClusterDeployments.Items {
-			clusterdeployment := allClusterDeployments.Items[i]
-			if util.ContainsFinalizer(&clusterdeployment, goalertFinalizer) {
-				// Handle deletion of cluster OSD-16305
-			}
-		}
-	}
+	// goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
+	// //If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
+	// if gi.DeletionTimestamp != nil {
+	// 	for i := range matchingClusterDeployments.Items {
+	// 		clusterdeployment := allClusterDeployments.Items[i]
+	// 		// !! COMMENTED OUT FOR PROW -- NEED LOGIC FOR DELETION !! //
+	// 		// if util.ContainsFinalizer(&clusterdeployment, goalertFinalizer) {
+	// 		// 	// Handle deletion of cluster OSD-16305
+	// 		// }
+	// 	}
+	// }
 
 	for _, cd := range matchingClusterDeployments.Items {
 		cd := cd
 		if cd.DeletionTimestamp == nil {
-			if err := r.handleCreate(gi, sessionCookie, &cd); err != nil {
+			if err := r.handleCreate(gclient, gi, sessionCookie, &cd); err != nil {
 				r.reqLogger.Error(err, "Failing to register cluster with Goalert")
 			}
 		}
@@ -150,7 +152,8 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *GoalertIntegrationReconciler) authGoalert(username string, password string) (*http.Response, error) {
 
 	// Create HTTP POST request for authentication
-	authUrl := goalert.GoalertApiEndpoint + "/api/v2/identity/providers/basic "
+	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
+	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic "
 	reqBody := fmt.Sprintf("username=%s&password=%s", username, password)
 	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBuffer([]byte(reqBody)))
 	if err != nil {
@@ -158,7 +161,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	}
 
 	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded'")
-	authReq.Header.Set("Referer", goalert.GoalertApiEndpoint+"/alerts")
+	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 	client := &http.Client{}
 
 	authResp, err := client.Do(authReq)
@@ -169,13 +172,13 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	defer authResp.Body.Close()
 	return authResp, nil
 }
-func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) GetAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
 	return allClusterDeployments, err
 }
 
-func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&gi.Spec.ClusterDeploymentSelector)
 	if err != nil {
 		return nil, err
