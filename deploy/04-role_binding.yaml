@@ -1,0 +1,12 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: configure-goalert-operator
+subjects:
+- kind: ServiceAccount
+  name: configure-goalert-operator
+  namespace: configure-goalert-operator
+roleRef:
+  kind: ClusterRole
+  name: configure-goalert-operator
+  apiGroup: rbac.authorization.k8s.io
