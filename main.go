@@ -33,6 +33,7 @@ import (
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/controllers/goalertintegration"
+	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -43,7 +44,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(hivev1.AddToScheme(scheme))
 	utilruntime.Must(goalertv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }

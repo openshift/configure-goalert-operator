@@ -16,7 +16,7 @@ spec:
       serviceAccountName: configure-goalert-operator
       containers:
         - name: configure-goalert-operator
-          image: <IMAGE_TAG>
+          image: quay.io/katherinelc321/configure-goalert-operator/configure-goalert-operator@sha256:2fdd3a90bbe9e5f396cc429f02c27d97eaedda23bb454c46e24a039331150c26
           imagePullPolicy: Always
           livenessProbe:
             httpGet:

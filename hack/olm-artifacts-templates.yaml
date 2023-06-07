@@ -1,0 +1,33 @@
+apiVersion: goalert.managed.openshift.io/v1alpha1
+kind: GoalertIntegration
+metadata:
+  name: osd
+  namespace: configure-goalert-operator
+spec:
+  highEscalationPolicy: d250618b-7f36-41d7-bb44-120003bb8839
+  lowEscalationPolicy: 9f9b4562-6f54-4cea-9d46-0329b69f126e
+  servicePrefix: Fedramp
+  goalertCredsSecretRef:
+    name: goalert-creds-secret
+    namespace: configure-goalert-operator
+  clusterDeploymentSelector:
+    matchExpressions:
+      # only create Goalert service for managed (OSD) clusters
+    - key: api.openshift.com/managed
+      operator: In
+      values: ["true"]
+      # ignore CD for any "nightly" clusters
+    - key: api.openshift.com/channel-group
+      operator: NotIn
+      values: ["nightly"]
+      # ignore CD w/ "legacy" noalerts label
+    - key: api.openshift.com/noalerts
+      operator: NotIn
+      values: ["true"]
+      # ignore CD w/ ext noalerts label
+    - key: ext-managed.openshift.io/noalerts
+      operator: NotIn
+      values: ["true"]
+  targetSecretRef:
+    name: goalert-secret
+    namespace: openshift-monitoring
