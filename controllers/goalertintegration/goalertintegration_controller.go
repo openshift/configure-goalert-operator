@@ -21,7 +21,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -120,9 +122,9 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Read session cookie from authentication response headers
-	sessionCookie, err := authenticateGoalert.Request.Cookie("goalert_session.2")
+	sessionCookie, err := r.fetchSessionCookie(authenticateGoalert)
 	if err != nil {
-		r.reqLogger.Error(err, "Error extracting goalert_session.2 cookie")
+		r.reqLogger.Error(err, "Error fetching goalert_session.2 cookie")
 	}
 
 	// goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
@@ -151,17 +153,31 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 func (r *GoalertIntegrationReconciler) authGoalert(username string, password string) (*http.Response, error) {
 
-	// Create HTTP POST request for authentication
+	// Create authentication endpoint
 	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
-	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic "
-	reqBody := fmt.Sprintf("username=%s&password=%s", username, password)
-	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBuffer([]byte(reqBody)))
+	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic"
+
+	// Create form data to be sent in the request body
+	form := url.Values{}
+	form.Add("username", username)
+	form.Add("password", password)
+
+	// Encode form data and create HTTP request
+	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBufferString(form.Encode()))
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
 	}
 
-	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded'")
+	// Build request headers
+	cookie := &http.Cookie{
+		Name:  "login_redir",
+		Value: goalertApiEndpoint + "/users",
+	}
+	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
+	authReq.AddCookie(cookie)
+
+	// Send HTTP request and get response
 	client := &http.Client{}
 
 	authResp, err := client.Do(authReq)
@@ -170,8 +186,42 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	}
 
 	defer authResp.Body.Close()
-	return authResp, nil
+	return authResp.Request.Response, nil
 }
+
+var ErrSessionCookieMissing error = fmt.Errorf("session cookie is missing")
+
+func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Response) (*http.Cookie, error) {
+
+	var strCookie string
+	var httpCookie *http.Cookie
+	for _, cookie := range response.Header.Values("set-cookie") {
+		if strings.Contains(cookie, "goalert_session.2") {
+			strCookie = substringAfter(cookie, "=")
+		}
+	}
+
+	if strCookie != "" {
+		httpCookie = &http.Cookie{
+			Name:  "goalert_session.2",
+			Value: strCookie,
+		}
+	} else {
+		r.reqLogger.Error(ErrSessionCookieMissing, "goalert_session.2 is empty")
+		return nil, ErrSessionCookieMissing
+	}
+	return httpCookie, nil
+}
+
+func substringAfter(s string, sep string) string {
+	substrings := strings.SplitAfter(s, sep)
+	if len(substrings) > 1 {
+		return substrings[1]
+	} else {
+		return ""
+	}
+}
+
 func (r *GoalertIntegrationReconciler) GetAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})

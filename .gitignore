@@ -17,3 +17,4 @@
 # local testing
 .venv/
 .docker/
+.vscode/
