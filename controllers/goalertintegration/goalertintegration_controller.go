@@ -50,6 +50,7 @@ type GoalertIntegrationReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	reqLogger logr.Logger
+	gclient   func(sessionCookie *http.Cookie) goalert.Client
 }
 
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations,verbs=get;list;watch;create;update;patch;delete
@@ -70,7 +71,6 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Fetch the GoalertIntegration instance
 	gi := &goalertv1alpha1.GoalertIntegration{}
-	var gclient goalert.Client
 	err := r.Get(ctx, req.NamespacedName, gi)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -126,7 +126,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err != nil {
 		r.reqLogger.Error(err, "Error fetching goalert_session.2 cookie")
 	}
-
+	graphqlClient := r.gclient(sessionCookie)
 	// goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
 	// //If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	// if gi.DeletionTimestamp != nil {
@@ -142,7 +142,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for _, cd := range matchingClusterDeployments.Items {
 		cd := cd
 		if cd.DeletionTimestamp == nil {
-			if err := r.handleCreate(gclient, gi, sessionCookie, &cd); err != nil {
+			if err := r.handleCreate(graphqlClient, gi, &cd); err != nil {
 				r.reqLogger.Error(err, "Failing to register cluster with Goalert")
 			}
 		}
@@ -250,6 +250,7 @@ func (r *GoalertIntegrationReconciler) requeueOnErr(err error) (reconcile.Result
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.gclient = goalert.NewClient
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&goalertv1alpha1.GoalertIntegration{}).
 		Complete(r)
