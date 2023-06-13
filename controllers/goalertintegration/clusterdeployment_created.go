@@ -2,7 +2,6 @@ package goalertintegration
 
 import (
 	"context"
-	"net/http"
 	"strings"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
@@ -19,7 +18,7 @@ import (
 )
 
 // Scaffold of func to handle creation of new clusters OSD-16306
-func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, sessionCookie *http.Cookie, cd *hivev1.ClusterDeployment) error {
+func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	var (
 		// secretName is the name of the Secret deployed to the target
@@ -61,12 +60,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Favorite:           true,
 	}
 
-	highSvcID, err := gclient.CreateService(dataHighSvc, sessionCookie)
+	highSvcID, err := gclient.CreateService(dataHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for High alerts")
 		return err
 	}
-	lowSvcID, err := gclient.CreateService(dataLowSvc, sessionCookie)
+	lowSvcID, err := gclient.CreateService(dataLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for Low alerts")
 		return err
@@ -84,12 +83,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Name: "Low alerts",
 	}
 
-	highIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyHighSvc, sessionCookie)
+	highIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create integration key for high alerts")
 		return err
 	}
-	lowIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyLowSvc, sessionCookie)
+	lowIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyLowSvc)
 	r.reqLogger.Error(err, "Failed to create integration key for low alerts")
 	if err != nil {
 		return err
@@ -102,7 +101,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Timeout: 15,
 	}
 
-	heartbeatMonitorID, err := gclient.CreateHeartbeatMonitor(dataHeartbeatMonitor, sessionCookie)
+	heartbeatMonitorID, err := gclient.CreateHeartbeatMonitor(dataHeartbeatMonitor)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
