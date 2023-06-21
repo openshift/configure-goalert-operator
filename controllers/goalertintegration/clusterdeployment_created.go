@@ -2,7 +2,6 @@ package goalertintegration
 
 import (
 	"context"
-	"net/http"
 	"strings"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
@@ -19,13 +18,13 @@ import (
 )
 
 // Scaffold of func to handle creation of new clusters OSD-16306
-func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, sessionCookie *http.Cookie, cd *hivev1.ClusterDeployment) error {
+func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	var (
 		// secretName is the name of the Secret deployed to the target
 		// cluster, and also the name of the SyncSet that causes it to
 		// be deployed.
-		secretName string = config.Name(gi.Spec.ServicePrefix, cd.Name, config.SecretSuffix)
+		secretName string = config.SecretName
 		// There can be more than one GoalertIntegration that causes
 		// creation of resources for a ClusterDeployment, and each one
 		// will need a finalizer here. We add a suffix of the CR
@@ -61,12 +60,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Favorite:           true,
 	}
 
-	highSvcID, err := gclient.CreateService(dataHighSvc, sessionCookie)
+	highSvcID, err := gclient.CreateService(dataHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for High alerts")
 		return err
 	}
-	lowSvcID, err := gclient.CreateService(dataLowSvc, sessionCookie)
+	lowSvcID, err := gclient.CreateService(dataLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for Low alerts")
 		return err
@@ -84,14 +83,14 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Name: "Low alerts",
 	}
 
-	highIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyHighSvc, sessionCookie)
+	highIntKey, err := gclient.CreateIntegrationKey(dataIntKeyHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create integration key for high alerts")
 		return err
 	}
-	lowIntKeyID, err := gclient.CreateIntegrationKey(dataIntKeyLowSvc, sessionCookie)
-	r.reqLogger.Error(err, "Failed to create integration key for low alerts")
+	lowIntKey, err := gclient.CreateIntegrationKey(dataIntKeyLowSvc)
 	if err != nil {
+		r.reqLogger.Error(err, "Failed to create integration key for low alerts")
 		return err
 	}
 
@@ -102,14 +101,14 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Timeout: 15,
 	}
 
-	heartbeatMonitorID, err := gclient.CreateHeartbeatMonitor(dataHeartbeatMonitor, sessionCookie)
+	heartbeatMonitorKey, err := gclient.CreateHeartbeatMonitor(dataHeartbeatMonitor)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
 	}
 
 	// save config map
-	newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, highEscalationPolicyID, lowEscalationPolicyID)
+	newCM := kube.GenerateConfigMap(cd.Namespace, strings.ToLower(configMapName), highSvcID, lowSvcID, highEscalationPolicyID, lowEscalationPolicyID)
 	if err = controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on configmap")
 		return err
@@ -128,7 +127,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 	}
 
 	//add secret part
-	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKeyID, lowIntKeyID, heartbeatMonitorID)
+	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKey, lowIntKey, heartbeatMonitorKey)
 	r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
 	//add reference
 	if err = controllerutil.SetControllerReference(cd, secret, r.Scheme); err != nil {
@@ -146,9 +145,9 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		if err != nil {
 			return nil
 		}
-		if string(sc.Data[config.GoalertHighIntKey]) != highIntKeyID ||
-			string(sc.Data[config.GoalertLowIntKey]) != lowIntKeyID ||
-			string(sc.Data[config.GoalertHeartbeatIntKey]) != heartbeatMonitorID {
+		if string(sc.Data[config.GoalertHighIntKey]) != highIntKey ||
+			string(sc.Data[config.GoalertLowIntKey]) != lowIntKey ||
+			string(sc.Data[config.GoalertHeartbeatIntKey]) != heartbeatMonitorKey {
 			r.reqLogger.Info("Secret data have changed, delete the secret first")
 			if err = r.Delete(context.TODO(), secret); err != nil {
 				log.Info("failed to delete existing goalert secret")

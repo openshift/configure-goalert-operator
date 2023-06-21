@@ -11,7 +11,7 @@ const (
 	GoalertApiEndpointEnvVar string = "GOALERT_ENDPOINT_URL"
 	GoalertFinalizerPrefix   string = "goalert.managed.openshift.io/goalert-"
 	ConfigMapSuffix          string = "-goalert-config"
-	SecretSuffix             string = "-goalert-secret"
+	SecretName               string = "goalert-secret"
 )
 
 // Name is used to generate the name of secondary resources (SyncSets,

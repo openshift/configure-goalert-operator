@@ -3,56 +3,104 @@ package goalert
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/openshift/configure-goalert-operator/config"
 )
 
 // Client is a wrapper interface for the GraphqlClient to allow for easier testing
 type Client interface {
-	CreateService(data *Data, sessionCookie *http.Cookie) (string, error)
-	CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error)
-	CreateHeartbeatMonitor(data *Data, sessionCookie *http.Cookie) (string, error)
-	DeleteService(data *Data, sessionCookie *http.Cookie)
+	CreateService(data *Data) (string, error)
+	CreateIntegrationKey(data *Data) (string, error)
+	CreateHeartbeatMonitor(data *Data) (string, error)
+	DeleteService(data *Data) error
 }
 
 // Wrapper for HTTP client
 type GraphqlClient struct {
-	BaseURL    *url.URL
-	httpClient *http.Client
+	httpClient    *http.Client
+	sessionCookie *http.Cookie
+}
+
+// Wrapper to create new client for GraphQL api calls
+func NewClient(sessionCookie *http.Cookie) Client {
+	return &GraphqlClient{
+		httpClient:    http.DefaultClient,
+		sessionCookie: sessionCookie,
+	}
 }
 
 // Data describes the data that is needed for Goalert GraphQL api calls
 type Data struct {
 	Name               string `json:"name"`
-	Id                 string `json:"id"`
+	Id                 string `json:"id,omitempty"`
 	Description        string `json:"description,omitempty"`
 	Favorite           bool   `json:"favorite,omitempty"`
-	EscalationPolicyID string `json:"escalationPolicyID"`
-	Type               string `json:"type"`
-	Timeout            int    `json:"timeoutMinutes"`
-	DeleteAll          bool   `json:"deleteAll"`
+	EscalationPolicyID string `json:"escalationPolicyID,omitempty"`
+	Type               string `json:"type,omitempty"`
+	Timeout            int    `json:"timeoutMinutes,omitempty"`
+	DeleteAll          bool   `json:"deleteAll,omitempty"`
+}
+
+// q describes GraphQL query payload
+type q struct {
+	Query string
+}
+
+// RespSvData describes Svc ID returned from createService
+type RespSvcData struct {
+	Data struct {
+		CreateService struct {
+			ID string `json:"id"`
+		} `json:"createService"`
+	} `json:"data"`
+}
+
+// RespIntKeyData describes int key returned from createIntegrationKey
+type RespIntKeyData struct {
+	Data struct {
+		CreateIntKey struct {
+			Key string `json:"href"`
+		} `json:"createIntegrationKey"`
+	} `json:"data"`
+}
+
+// RespHeartBeatData describes heartbeatmonitor key from createHeartbeatMonitor
+type RespHeartBeatData struct {
+	Data struct {
+		CreateHeartBeatKey struct {
+			Key string `json:"href"`
+		} `json:"createHeartbeatMonitor"`
+	} `json:"data"`
+}
+
+// RespDelete contains boolean returned from deleteAll
+type RespDelete struct {
+	Data struct {
+		Bool bool `json:"deleteAll"`
+	} `json:"data"`
 }
 
 // Wrapper func to help send the http request
-func (c *GraphqlClient) NewRequest(method string, body interface{}, sessionCookie *http.Cookie) (*Data, error) {
+func (c *GraphqlClient) NewRequest(method string, body interface{}) ([]byte, error) {
 
-	var respData Data
 	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
-	var buf io.ReadWriter
 
+	var data []byte
+	var err error
 	if body != nil {
-		buf = new(bytes.Buffer)
-		err := json.NewEncoder(buf).Encode(body)
+		data, err = json.Marshal(body)
 		if err != nil {
 			return nil, err
 		}
 	}
-	req, err := http.NewRequest(method, goalertApiEndpoint+"/api/graphql", buf)
+	req, err := http.NewRequest(method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +108,7 @@ func (c *GraphqlClient) NewRequest(method string, body interface{}, sessionCooki
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
-	req.AddCookie(sessionCookie)
+	req.AddCookie(c.sessionCookie)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -72,92 +120,98 @@ func (c *GraphqlClient) NewRequest(method string, body interface{}, sessionCooki
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(respBytes, &respData)
-	if err != nil {
-		return nil, err
-	}
-	return &respData, nil
+
+	return respBytes, nil
 }
 
 // Creates new service
-func (c *GraphqlClient) CreateService(data *Data, sessionCookie *http.Cookie) (string, error) {
+func (c *GraphqlClient) CreateService(data *Data) (string, error) {
 
-	createClusterSvcData := map[string]string{
-		"mutation": fmt.Sprintf(
-			`{createService(input: {
-				name: %s,
-				description: %s,
-				favorite: %t,
-				escalationPolicyID: %s
-			}){
-				id
-			}`, data.Name, data.Description, data.Favorite, data.EscalationPolicyID),
-	}
+	query := fmt.Sprintf(`mutation {createService(input:{name:%s,description:%s,favorite:%t,escalationPolicyID:%s}){id}}`,
+		strconv.Quote(data.Name), strconv.Quote(data.Description), data.Favorite, strconv.Quote(data.EscalationPolicyID))
 
-	respData, err := c.NewRequest("POST", createClusterSvcData, sessionCookie)
+	query = strings.Replace(query, "\t", "", -1)
+	body := q{Query: query}
+	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return "", err
 	}
-	return respData.Id, nil
+
+	var r RespSvcData
+	err = json.Unmarshal(respData, &r)
+	if err != nil {
+		return "", err
+	}
+	return r.Data.CreateService.ID, nil
 }
 
 // Creates new integration key
-func (c *GraphqlClient) CreateIntegrationKey(data *Data, sessionCookie *http.Cookie) (string, error) {
+func (c *GraphqlClient) CreateIntegrationKey(data *Data) (string, error) {
 
-	createIntegrationKeyData := map[string]string{
-		"mutation": fmt.Sprintf(`{
-				createIntegrationKey(input: {
-					serviceID: %s,
-					type: %s,
-					name: %s
-				}){id}
-			}`, data.Id, data.Type, data.Name),
-	}
+	query := fmt.Sprintf(`mutation {createIntegrationKey(input:{serviceID:%s,type:%s,name:%s}){href}}`,
+		strconv.Quote(data.Id), data.Type, strconv.Quote(data.Name))
 
-	respData, err := c.NewRequest("POST", createIntegrationKeyData, sessionCookie)
+	query = strings.Replace(query, "\t", "", -1)
+	body := q{Query: query}
+	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return "", err
 	}
-	return respData.Id, nil
+
+	var r RespIntKeyData
+	err = json.Unmarshal(respData, &r)
+	if err != nil {
+		return "", err
+	}
+
+	return r.Data.CreateIntKey.Key, nil
 }
 
 // Creates new heartbeatmonitor
-func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data, sessionCookie *http.Cookie) (string, error) {
+func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
 
-	createHeartbeatMonitorData := map[string]string{
-		"mutation": fmt.Sprintf(`{
-			createHeartbeatMonitor(input: {
-				serviceID: %s,
-				name: %s,
-				timeoutMinutes: %d 
-			}){id}
-		}`, data.Id, data.Name, data.Timeout),
-	}
+	query := fmt.Sprintf(`mutation {createHeartbeatMonitor(input: {serviceID: %s,name: %s,timeoutMinutes: %d }){href}}`,
+		strconv.Quote(data.Id), strconv.Quote(data.Name), data.Timeout)
 
-	respData, err := c.NewRequest("POST", createHeartbeatMonitorData, sessionCookie)
+	query = strings.Replace(query, "\t", "", -1)
+	body := q{Query: query}
+	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return "", err
 	}
-	return respData.Id, nil
+
+	var r RespHeartBeatData
+	err = json.Unmarshal(respData, &r)
+	if err != nil {
+		return "", err
+	}
+	return r.Data.CreateHeartBeatKey.Key, nil
 }
 
 // Deletes service
-func (c *GraphqlClient) DeleteService(data *Data, sessionCookie *http.Cookie) error {
-	deleteSvcData := map[string]string{
-		"mutation": fmt.Sprintf(`{
+func (c *GraphqlClient) DeleteService(data *Data) error {
+	query := fmt.Sprintf(`mutation {
 			deleteAll(input: {
 				id: %s,
 				type: service
 			})
-		}`, data.Id),
-	}
+		}`, strconv.Quote(data.Id))
 
-	respData, err := c.NewRequest("POST", deleteSvcData, sessionCookie)
+	query = strings.Replace(query, "\t", "", -1)
+	body := q{Query: query}
+	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return err
 	}
-	if !respData.DeleteAll {
-		fmt.Print("Failed to delete service")
+
+	var r RespDelete
+	err = json.Unmarshal(respData, &r)
+	if err != nil {
+		return err
+	}
+
+	if !r.Data.Bool {
+		return errors.New("failed to delete service")
 	}
 	return nil
 }
