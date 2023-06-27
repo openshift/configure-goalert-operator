@@ -9,6 +9,7 @@ require (
 	github.com/openshift/hive/apis v0.0.0-20230523160259-ef652d48df7d
 	github.com/pingcap/errors v0.11.4
 	github.com/pingcap/log v1.1.0
+	github.com/stretchr/testify v1.8.0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.25.0
@@ -56,6 +57,7 @@ require (
 	github.com/openshift/api v0.0.0-20230228142948-d170fcdc0fa6 // indirect
 	github.com/openshift/custom-resource-status v1.1.3-0.20220503160415-f2fdb4999d87 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.12.2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
