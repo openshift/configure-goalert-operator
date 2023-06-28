@@ -20,6 +20,7 @@ type Client interface {
 	CreateIntegrationKey(data *Data) (string, error)
 	CreateHeartbeatMonitor(data *Data) (string, error)
 	DeleteService(data *Data) error
+	NewRequest(method string, body interface{}) ([]byte, error)
 }
 
 // Wrapper for HTTP client
@@ -48,8 +49,8 @@ type Data struct {
 	DeleteAll          bool   `json:"deleteAll,omitempty"`
 }
 
-// q describes GraphQL query payload
-type q struct {
+// Q describes GraphQL query payload
+type Q struct {
 	Query string
 }
 
@@ -83,7 +84,9 @@ type RespHeartBeatData struct {
 // RespDelete contains boolean returned from deleteAll
 type RespDelete struct {
 	Data struct {
-		Bool bool `json:"deleteAll"`
+		DeleteAll struct {
+			Bool bool `json:"bool"`
+		} `json:"deleteAll"`
 	} `json:"data"`
 }
 
@@ -131,7 +134,7 @@ func (c *GraphqlClient) CreateService(data *Data) (string, error) {
 		strconv.Quote(data.Name), strconv.Quote(data.Description), data.Favorite, strconv.Quote(data.EscalationPolicyID))
 
 	query = strings.Replace(query, "\t", "", -1)
-	body := q{Query: query}
+	body := Q{Query: query}
 	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return "", err
@@ -152,7 +155,7 @@ func (c *GraphqlClient) CreateIntegrationKey(data *Data) (string, error) {
 		strconv.Quote(data.Id), data.Type, strconv.Quote(data.Name))
 
 	query = strings.Replace(query, "\t", "", -1)
-	body := q{Query: query}
+	body := Q{Query: query}
 	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return "", err
@@ -174,7 +177,7 @@ func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
 		strconv.Quote(data.Id), strconv.Quote(data.Name), data.Timeout)
 
 	query = strings.Replace(query, "\t", "", -1)
-	body := q{Query: query}
+	body := Q{Query: query}
 	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return "", err
@@ -198,7 +201,7 @@ func (c *GraphqlClient) DeleteService(data *Data) error {
 		}`, strconv.Quote(data.Id))
 
 	query = strings.Replace(query, "\t", "", -1)
-	body := q{Query: query}
+	body := Q{Query: query}
 	respData, err := c.NewRequest("POST", body)
 	if err != nil {
 		return err
@@ -210,7 +213,7 @@ func (c *GraphqlClient) DeleteService(data *Data) error {
 		return err
 	}
 
-	if !r.Data.Bool {
+	if !r.Data.DeleteAll.Bool {
 		return errors.New("failed to delete service")
 	}
 	return nil
