@@ -78,148 +78,285 @@ func Test_NewRequest(t *testing.T) {
 
 func Test_CreateService(t *testing.T) {
 
-	mockRespData := []byte(`{"data": {"createService": {"id": "456"}}}`)
-
-	// Test successful response
-	data := &Data{
-		Name:               "Test",
-		Description:        "Test service",
-		Favorite:           false,
-		EscalationPolicyID: "123",
-	}
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := mockRespData
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(resp); err != nil {
-			t.Fatalf("Unexpected error writing response from httptest server")
-		}
-	}))
-	defer mockServer.Close()
-
-	t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
-
-	mockClient := &GraphqlClient{
-		sessionCookie: &http.Cookie{
-			Name: "test_cookie",
+	tests := []struct {
+		name        string
+		data        *Data
+		expectedID  string
+		respData    []byte
+		expectedErr bool
+	}{
+		{
+			name: "Successful createService",
+			data: &Data{
+				Name:               "Test",
+				Description:        "Test service",
+				Favorite:           false,
+				EscalationPolicyID: "123",
+			},
+			expectedID:  "456",
+			respData:    []byte(`{"data": {"createService": {"id": "456"}}}`),
+			expectedErr: false,
 		},
-		httpClient: mockServer.Client(),
+		{
+			name: "Unsuccessful createService",
+			data: &Data{
+				Name:               "Test2",
+				Description:        "Test service",
+				Favorite:           false,
+				EscalationPolicyID: "123-bad",
+			},
+			expectedID:  "",
+			respData:    []byte(`{"data":{"createService":null}}`),
+			expectedErr: false,
+		},
+		{
+			name: "Failed unmarshalling response",
+			data: &Data{
+				Name:               "Test3",
+				Description:        "Test service",
+				Favorite:           false,
+				EscalationPolicyID: "890",
+			},
+			expectedID:  "",
+			respData:    []byte(`nmuyrufcewrqrew`),
+			expectedErr: true,
+		},
 	}
-	expectedID := "456"
-	actualID, err := mockClient.CreateService(data)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedID, actualID)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
+
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			actualID, err := mockClient.CreateService(test.data)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expectedID, actualID)
+				assert.Nil(t, err)
+			}
+		})
+	}
+
 }
 
 func Test_CreateIntegrationKey(t *testing.T) {
 
-	// Define expected input data and response data
-	testData := &Data{
-		Id:   "123",
-		Type: "test",
-		Name: "Test Integration Key",
-	}
-	expectedResponse := []byte(`{"data":{"createIntegrationKey":{"href":"/integration-keys/123"}}}`)
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := expectedResponse
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(resp); err != nil {
-			t.Fatalf("Unexpected error writing response from httptest server")
-		}
-	}))
-	defer mockServer.Close()
-
-	t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
-
-	mockClient := &GraphqlClient{
-		sessionCookie: &http.Cookie{
-			Name: "test_cookie",
+	tests := []struct {
+		name        string
+		data        *Data
+		expectedKey string
+		respData    []byte
+		expectedErr bool
+	}{
+		{
+			name: "Successful createIntegrationKey",
+			data: &Data{
+				Id:   "123",
+				Type: "test",
+				Name: "Test Integration Key",
+			},
+			expectedKey: "/integration-keys/123",
+			respData:    []byte(`{"data":{"createIntegrationKey":{"href":"/integration-keys/123"}}}`),
+			expectedErr: false,
 		},
-		httpClient: mockServer.Client(),
+		{
+			name: "Unsuccessful createIntegrationKey",
+			data: &Data{
+				Id:   "123-badID",
+				Type: "test",
+				Name: "Test Integration Key",
+			},
+			expectedKey: "",
+			respData:    []byte(`{"data":{"createIntegrationKey":null}}`),
+			expectedErr: false,
+		},
+		{
+			name: "Failed unmarshalling response",
+			data: &Data{
+				Id:   "123",
+				Type: "test",
+				Name: "Test Integration Key",
+			},
+			expectedKey: "",
+			respData:    []byte(`vfrsbhtnrhurdsbvr`),
+			expectedErr: true,
+		},
 	}
 
-	key, err := mockClient.CreateIntegrationKey(testData)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
 
-	// Assert that the function returns the expected result
-	expectedKey := "/integration-keys/123"
-	assert.NoError(t, err)
-	assert.Equal(t, expectedKey, key)
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			key, err := mockClient.CreateIntegrationKey(test.data)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expectedKey, key)
+				assert.Nil(t, err)
+			}
+		})
+	}
 }
 
-func TestCreateHeartbeatMonitor(t *testing.T) {
+func Test_CreateHeartbeatMonitor(t *testing.T) {
 
-	// Define expected input data and response data
-	testData := &Data{
-		Id:      "123",
-		Name:    "Test Heartbeat Monitor",
-		Timeout: 15,
-	}
-
-	expectedResponse := []byte(`{"data":{"createHeartbeatMonitor":{"href":"/heartbeat-monitors/123"}}}`)
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := expectedResponse
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(resp); err != nil {
-			t.Fatalf("Unexpected error writing response from httptest server")
-		}
-	}))
-	defer mockServer.Close()
-
-	t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
-
-	mockClient := &GraphqlClient{
-		sessionCookie: &http.Cookie{
-			Name: "test_cookie",
+	tests := []struct {
+		name        string
+		data        *Data
+		expectedKey string
+		respData    []byte
+		expectedErr bool
+	}{
+		{
+			name: "Successful createHeartbeatMonitor",
+			data: &Data{
+				Id:      "123",
+				Name:    "Test Heartbeat Monitor",
+				Timeout: 15,
+			},
+			expectedKey: "/heartbeat-monitors/123",
+			respData:    []byte(`{"data":{"createHeartbeatMonitor":{"href":"/heartbeat-monitors/123"}}}`),
+			expectedErr: false,
 		},
-		httpClient: mockServer.Client(),
+		{
+			name: "Unsuccessful createHeartbeatMonitor",
+			data: &Data{
+				Id:      "123-badID",
+				Name:    "Test Heartbeat Monitor",
+				Timeout: 15,
+			},
+			expectedKey: "",
+			respData:    []byte(`{"data":{"createHeartbeatMonitor":null}}`),
+			expectedErr: false,
+		},
+		{
+			name: "Failed unmarshalling response",
+			data: &Data{
+				Id:      "123",
+				Name:    "Test Heartbeat Monitor",
+				Timeout: 15,
+			},
+			expectedKey: "",
+			respData:    []byte(`tsrgafcvarvsgtrb`),
+			expectedErr: true,
+		},
 	}
-	key, err := mockClient.CreateHeartbeatMonitor(testData)
 
-	// Assert that the function returns the expected result
-	expectedKey := "/heartbeat-monitors/123"
-	assert.NoError(t, err)
-	assert.Equal(t, expectedKey, key)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
+
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			key, err := mockClient.CreateHeartbeatMonitor(test.data)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expectedKey, key)
+				assert.Nil(t, err)
+			}
+		})
+	}
 }
 
 func TestDeleteService(t *testing.T) {
 
-	// Define expected input data and response data
-	testData := &Data{
-		Id: "123",
-	}
-
-	expectedResponse := []byte(`{"data":{"deleteAll":{"bool":true}}}`)
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := expectedResponse
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(resp); err != nil {
-			t.Fatalf("Unexpected error writing response from httptest server")
-		}
-	}))
-	defer mockServer.Close()
-
-	t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
-
-	mockClient := &GraphqlClient{
-		sessionCookie: &http.Cookie{
-			Name: "test_cookie",
+	tests := []struct {
+		name        string
+		data        *Data
+		respData    []byte
+		expectedErr bool
+	}{
+		{
+			name: "Successful deleteAll",
+			data: &Data{
+				Id: "123",
+			},
+			respData:    []byte(`{"data":{"deleteAll":{"bool":true}}}`),
+			expectedErr: false,
 		},
-		httpClient: mockServer.Client(),
+		{
+			name: "Unsuccessful deleteAll",
+			data: &Data{
+				Id: "123-badID",
+			},
+			respData:    []byte(`{"data":null}`),
+			expectedErr: true,
+		},
 	}
 
-	err := mockClient.DeleteService(testData)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
 
-	// Assert that the function returns the expected result
-	assert.NoError(t, err)
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			err := mockClient.DeleteService(test.data)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
 }
