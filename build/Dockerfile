@@ -1,5 +1,5 @@
 FROM quay.io/app-sre/boilerplate:image-v3.0.3 AS builder
-FROM golang:1.19 as builder
+FROM golang:1.20 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
