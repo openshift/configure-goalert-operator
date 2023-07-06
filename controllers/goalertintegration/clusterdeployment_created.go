@@ -1,5 +1,6 @@
 package goalertintegration
 
+//goland:noinspection SpellCheckingInspection
 import (
 	"context"
 	"strings"
@@ -18,29 +19,29 @@ import (
 )
 
 // Scaffold of func to handle creation of new clusters OSD-16306
-func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
+func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	var (
 		// secretName is the name of the Secret deployed to the target
 		// cluster, and also the name of the SyncSet that causes it to
 		// be deployed.
-		secretName string = config.SecretName
+		secretName = config.SecretName
 		// There can be more than one GoalertIntegration that causes
 		// creation of resources for a ClusterDeployment, and each one
 		// will need a finalizer here. We add a suffix of the CR
 		// name to distinguish them.
-		finalizer string = config.GoalertFinalizerPrefix + gi.Name
+		finalizer = config.GoalertFinalizerPrefix + gi.Name
 		// configMapName is the name of the ConfigMap containing the
 		// SERVICE_ID and INTEGRATION_ID
-		configMapName          string = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
-		highEscalationPolicyID string = gi.Spec.HighEscalationPolicy
-		lowEscalationPolicyID  string = gi.Spec.LowEscalationPolicy
+		configMapName          = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
+		highEscalationPolicyID = gi.Spec.HighEscalationPolicy
+		lowEscalationPolicyID  = gi.Spec.LowEscalationPolicy
 	)
 
 	if !controllerutil.ContainsFinalizer(cd, finalizer) {
 		baseToPatch := client.MergeFrom(cd.DeepCopy())
 		controllerutil.AddFinalizer(cd, finalizer)
-		return r.Patch(context.TODO(), cd, baseToPatch)
+		return r.Patch(ctx, cd, baseToPatch)
 	}
 
 	clusterID := GetClusterID(cd)
@@ -60,12 +61,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Favorite:           true,
 	}
 
-	highSvcID, err := gclient.CreateService(dataHighSvc)
+	highSvcID, err := gclient.CreateService(ctx, dataHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for High alerts")
 		return err
 	}
-	lowSvcID, err := gclient.CreateService(dataLowSvc)
+	lowSvcID, err := gclient.CreateService(ctx, dataLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for Low alerts")
 		return err
@@ -83,25 +84,25 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		Name: "Low alerts",
 	}
 
-	highIntKey, err := gclient.CreateIntegrationKey(dataIntKeyHighSvc)
+	highIntKey, err := gclient.CreateIntegrationKey(ctx, dataIntKeyHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create integration key for high alerts")
 		return err
 	}
-	lowIntKey, err := gclient.CreateIntegrationKey(dataIntKeyLowSvc)
+	lowIntKey, err := gclient.CreateIntegrationKey(ctx, dataIntKeyLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create integration key for low alerts")
 		return err
 	}
 
-	// Load data to create heartbeatmonitor
+	// Load data to create heartbeat monitor
 	dataHeartbeatMonitor := &goalert.Data{
 		Id:      highSvcID,
 		Name:    clusterID,
 		Timeout: 15,
 	}
 
-	heartbeatMonitorKey, err := gclient.CreateHeartbeatMonitor(dataHeartbeatMonitor)
+	heartbeatMonitorKey, err := gclient.CreateHeartbeatMonitor(ctx, dataHeartbeatMonitor)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
@@ -114,9 +115,9 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		return err
 	}
 
-	if err := r.Create(context.TODO(), newCM); err != nil {
+	if err := r.Create(ctx, newCM); err != nil {
 		if errors.IsAlreadyExists(err) {
-			if updateErr := r.Update(context.TODO(), newCM); updateErr != nil {
+			if updateErr := r.Update(ctx, newCM); updateErr != nil {
 				r.reqLogger.Error(err, "Error updating existing configmap", "Name", configMapName)
 				return err
 			}
@@ -134,14 +135,14 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 		r.reqLogger.Error(err, "Error setting controller reference on secret", "ClusterDeployment.Namespace", cd.Namespace)
 		return err
 	}
-	if err = r.Create(context.TODO(), secret); err != nil {
+	if err = r.Create(ctx, secret); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
 		}
 
 		r.reqLogger.Info("the goalert secret exist, check if IntegrationKey are changed or not", "ClusterDeployment.Namespace", cd.Namespace)
 		sc := &corev1.Secret{}
-		err = r.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: cd.Namespace}, sc)
+		err = r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: cd.Namespace}, sc)
 		if err != nil {
 			return nil
 		}
@@ -149,12 +150,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 			string(sc.Data[config.GoalertLowIntKey]) != lowIntKey ||
 			string(sc.Data[config.GoalertHeartbeatIntKey]) != heartbeatMonitorKey {
 			r.reqLogger.Info("Secret data have changed, delete the secret first")
-			if err = r.Delete(context.TODO(), secret); err != nil {
+			if err = r.Delete(ctx, secret); err != nil {
 				log.Info("failed to delete existing goalert secret")
 				return err
 			}
 			r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
-			if err = r.Create(context.TODO(), secret); err != nil {
+			if err = r.Create(ctx, secret); err != nil {
 				return err
 			}
 		}
@@ -163,7 +164,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 	// Create syncset that will propagate secret to customer cluster
 	r.reqLogger.Info("Creating syncset", "ClusterDeployment.Namespace", cd.Namespace)
 	ss := &hivev1.SyncSet{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: secretName, Namespace: cd.Namespace}, ss)
+	err = r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: cd.Namespace}, ss)
 	if err != nil {
 		r.reqLogger.Info("error finding the old syncset")
 		if !errors.IsNotFound(err) {
@@ -175,7 +176,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 			r.reqLogger.Error(err, "Error setting controller reference on syncset", "ClusterDeployment.Namespace", cd.Namespace)
 			return err
 		}
-		if err := r.Create(context.TODO(), ss); err != nil {
+		if err := r.Create(ctx, ss); err != nil {
 			return err
 		}
 	}
@@ -185,5 +186,5 @@ func (r *GoalertIntegrationReconciler) handleCreate(gclient goalert.Client, gi *
 
 func GetClusterID(cd *hivev1.ClusterDeployment) string {
 	uid := strings.Split(cd.Namespace, "-")
-	return "Fedramp-" + uid[len(uid)-1]
+	return "fedramp-" + uid[len(uid)-1]
 }

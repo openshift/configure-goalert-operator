@@ -2,6 +2,7 @@ package goalert
 
 import (
 	"encoding/json"
+	"golang.org/x/net/context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func Test_NewRequest(t *testing.T) {
 
 	method := "POST"
 	endpoint := "/api/graphql"
-
+	ctx := context.Background()
 	// create a new http test server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != method {
@@ -64,7 +65,7 @@ func Test_NewRequest(t *testing.T) {
 	t.Setenv(config.GoalertApiEndpointEnvVar, ts.URL)
 
 	// make the request
-	respBytes, err := client.NewRequest(method, body)
+	respBytes, err := client.NewRequest(ctx, method, body)
 	if err != nil {
 		t.Error("Error making HTTP request:", err)
 	}
@@ -125,6 +126,7 @@ func Test_CreateService(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
 			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				resp := test.respData
 
@@ -143,7 +145,7 @@ func Test_CreateService(t *testing.T) {
 				httpClient: mockServer.Client(),
 			}
 
-			actualID, err := mockClient.CreateService(test.data)
+			actualID, err := mockClient.CreateService(ctx, test.data)
 			if test.expectedErr {
 				assert.NotNil(t, err)
 			} else {
@@ -201,6 +203,7 @@ func Test_CreateIntegrationKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
 			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				resp := test.respData
 
@@ -219,7 +222,7 @@ func Test_CreateIntegrationKey(t *testing.T) {
 				httpClient: mockServer.Client(),
 			}
 
-			key, err := mockClient.CreateIntegrationKey(test.data)
+			key, err := mockClient.CreateIntegrationKey(ctx, test.data)
 			if test.expectedErr {
 				assert.NotNil(t, err)
 			} else {
@@ -276,6 +279,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
 			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				resp := test.respData
 
@@ -294,7 +298,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 				httpClient: mockServer.Client(),
 			}
 
-			key, err := mockClient.CreateHeartbeatMonitor(test.data)
+			key, err := mockClient.CreateHeartbeatMonitor(ctx, test.data)
 			if test.expectedErr {
 				assert.NotNil(t, err)
 			} else {
@@ -318,7 +322,7 @@ func TestDeleteService(t *testing.T) {
 			data: &Data{
 				Id: "123",
 			},
-			respData:    []byte(`{"data":{"deleteAll":{"bool":true}}}`),
+			respData:    []byte(`{"data":{"deleteAll":true}}`),
 			expectedErr: false,
 		},
 		{
@@ -333,6 +337,7 @@ func TestDeleteService(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
 			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				resp := test.respData
 
@@ -351,7 +356,7 @@ func TestDeleteService(t *testing.T) {
 				httpClient: mockServer.Client(),
 			}
 
-			err := mockClient.DeleteService(test.data)
+			err := mockClient.DeleteService(ctx, test.data)
 			if test.expectedErr {
 				assert.NotNil(t, err)
 			} else {

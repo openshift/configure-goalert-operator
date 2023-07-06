@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"golang.org/x/net/context/ctxhttp"
 	"net/http"
 	"net/url"
 	"os"
@@ -39,6 +40,7 @@ import (
 	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -59,7 +61,7 @@ type GoalertIntegrationReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
+// Modify the Reconcile function to compare the state specified by
 // the GoalertIntegration object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
@@ -83,20 +85,21 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.requeueOnErr(err)
 	}
 
-	// fetch all CDs so we can inspect if they're dropped out of the matching CD list
-	// allClusterDeployments, err := r.getAllClusterDeployments(ctx)
-	// if err != nil {
-	// 	return r.requeueOnErr(err)
-	// }
+	// fetch all CDs, so we can inspect if they're dropped out of the matching CD list
+	allClusterDeployments, err := r.GetAllClusterDeployments(ctx)
+	if err != nil {
+		return r.requeueOnErr(err)
+	}
 
 	// Fetch ClusterDeployments matching the GI's ClusterDeployment label selector
-	matchingClusterDeployments, err := r.GetMatchingClusterDeployments(gi)
+	matchingClusterDeployments, err := r.GetMatchingClusterDeployments(ctx, gi)
 	if err != nil {
 		return r.requeueOnErr(err)
 	}
 
 	// Load creds for Goalert authentication
 	goalertUsername, err := utils.LoadSecretData(
+		ctx,
 		r.Client,
 		gi.Spec.GoalertCredsSecretRef.Name,
 		gi.Spec.GoalertCredsSecretRef.Namespace,
@@ -106,6 +109,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.reqLogger.Error(err, "Failed to load Goalert username key from Secret listed in GoalertIntegration CR")
 	}
 	goalertPassword, err := utils.LoadSecretData(
+		ctx,
 		r.Client,
 		gi.Spec.GoalertCredsSecretRef.Name,
 		gi.Spec.GoalertCredsSecretRef.Namespace,
@@ -116,7 +120,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Log in to Goalert
-	authenticateGoalert, err := r.authGoalert(goalertUsername, goalertPassword)
+	authenticateGoalert, err := r.authGoalert(ctx, goalertUsername, goalertPassword)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to auth to Goalert")
 	}
@@ -127,23 +131,70 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		r.reqLogger.Error(err, "Error fetching goalert_session.2 cookie")
 	}
 	graphqlClient := r.gclient(sessionCookie)
-	// goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
-	// //If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
-	// if gi.DeletionTimestamp != nil {
-	// 	for i := range matchingClusterDeployments.Items {
-	// 		clusterdeployment := allClusterDeployments.Items[i]
-	// 		// !! COMMENTED OUT FOR PROW -- NEED LOGIC FOR DELETION !! //
-	// 		// if util.ContainsFinalizer(&clusterdeployment, goalertFinalizer) {
-	// 		// 	// Handle deletion of cluster OSD-16305
-	// 		// }
-	// 	}
-	// }
+	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
 
-	for _, cd := range matchingClusterDeployments.Items {
-		cd := cd
+	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
+	if gi.DeletionTimestamp != nil {
+		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
+			for i := range matchingClusterDeployments.Items {
+				clusterDeployment := allClusterDeployments.Items[i]
+				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
+					if err = r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
+						r.reqLogger.Error(err, "failing to remove cluster service from GoAlert")
+						return r.requeueOnErr(err)
+					}
+				}
+			}
+			if !controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
+				if err = r.Update(ctx, gi); err != nil {
+					return r.requeueOnErr(err)
+				}
+			}
+		}
+		return r.doNotRequeue()
+	}
+
+	//Make sure there's a finalizer on the GoalertIntegration
+	if !controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
+		if !controllerutil.AddFinalizer(gi, goalertFinalizer) {
+			if err = r.Update(ctx, gi); err != nil {
+				return r.requeueOnErr(err)
+			}
+		}
+	}
+
+	for i := range allClusterDeployments.Items {
+		cd := allClusterDeployments.Items[i]
+		if controllerutil.ContainsFinalizer(&cd, goalertFinalizer) {
+			cdDeleteTime := cd.DeletionTimestamp
+			if cdDeleteTime != nil {
+				if err = r.handleDelete(ctx, graphqlClient, gi, &cd); err != nil {
+					r.reqLogger.Error(err, "failing to remove cluster service from GoAlert")
+					return r.requeueOnErr(err)
+				}
+			}
+			cdMatches := false
+			for _, mcd := range matchingClusterDeployments.Items {
+				if cd.Namespace == mcd.Namespace && cd.Name == mcd.Name {
+					cdMatches = true
+					break
+				}
+			}
+			if !cdMatches {
+				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.Name)
+				err = r.handleDelete(ctx, graphqlClient, gi, &cd)
+				if err != nil {
+					r.reqLogger.Error(err, "unmatched clusterdeployment, failed to remove associated goalert service", "clusterdeployment", cd.Name)
+				}
+			}
+		}
+	}
+
+	for i := range matchingClusterDeployments.Items {
+		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
-			if err := r.handleCreate(graphqlClient, gi, &cd); err != nil {
-				r.reqLogger.Error(err, "Failing to register cluster with Goalert")
+			if err := r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
+				r.reqLogger.Error(err, "failing to register cluster with Goalert")
 			}
 		}
 	}
@@ -151,7 +202,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func (r *GoalertIntegrationReconciler) authGoalert(username string, password string) (*http.Response, error) {
+func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username string, password string) (*http.Response, error) {
 
 	// Create authentication endpoint
 	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
@@ -163,7 +214,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	form.Add("password", password)
 
 	// Encode form data and create HTTP request
-	authReq, err := http.NewRequest("POST", authUrl, bytes.NewBufferString(form.Encode()))
+	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode()))
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
 	}
@@ -178,9 +229,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	authReq.AddCookie(cookie)
 
 	// Send HTTP request and get response
-	client := &http.Client{}
-
-	authResp, err := client.Do(authReq)
+	authResp, err := ctxhttp.Do(ctx, http.DefaultClient, authReq)
 	if err != nil {
 		r.reqLogger.Error(err, "Error sending HTTP request:", err)
 	}
@@ -189,7 +238,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(username string, password str
 	return authResp.Request.Response, nil
 }
 
-var ErrSessionCookieMissing error = fmt.Errorf("session cookie is missing")
+var ErrSessionCookieMissing = fmt.Errorf("session cookie is missing")
 
 func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Response) (*http.Cookie, error) {
 
@@ -228,7 +277,7 @@ func (r *GoalertIntegrationReconciler) GetAllClusterDeployments(ctx context.Cont
 	return allClusterDeployments, err
 }
 
-func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&gi.Spec.ClusterDeploymentSelector)
 	if err != nil {
 		return nil, err
@@ -236,7 +285,7 @@ func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(gi *goalert
 
 	matchingClusterDeployments := &hivev1.ClusterDeploymentList{}
 	listOpts := &client.ListOptions{LabelSelector: selector}
-	err = r.List(context.TODO(), matchingClusterDeployments, listOpts)
+	err = r.List(ctx, matchingClusterDeployments, listOpts)
 	return matchingClusterDeployments, err
 }
 

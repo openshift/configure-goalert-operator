@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/net/context"
+	"golang.org/x/net/context/ctxhttp"
 	"io"
 	"net/http"
 	"os"
@@ -16,11 +18,11 @@ import (
 
 // Client is a wrapper interface for the GraphqlClient to allow for easier testing
 type Client interface {
-	CreateService(data *Data) (string, error)
-	CreateIntegrationKey(data *Data) (string, error)
-	CreateHeartbeatMonitor(data *Data) (string, error)
-	DeleteService(data *Data) error
-	NewRequest(method string, body interface{}) ([]byte, error)
+	CreateService(ctx context.Context, data *Data) (string, error)
+	CreateIntegrationKey(ctx context.Context, data *Data) (string, error)
+	CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, error)
+	DeleteService(ctx context.Context, data *Data) error
+	NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error)
 }
 
 // Wrapper for HTTP client
@@ -54,7 +56,7 @@ type Q struct {
 	Query string
 }
 
-// RespSvData describes Svc ID returned from createService
+// RespSvcData describes Svc ID returned from createService
 type RespSvcData struct {
 	Data struct {
 		CreateService struct {
@@ -72,7 +74,7 @@ type RespIntKeyData struct {
 	} `json:"data"`
 }
 
-// RespHeartBeatData describes heartbeatmonitor key from createHeartbeatMonitor
+// RespHeartBeatData describes a heartbeat monitor key from createHeartbeatMonitor
 type RespHeartBeatData struct {
 	Data struct {
 		CreateHeartBeatKey struct {
@@ -84,14 +86,12 @@ type RespHeartBeatData struct {
 // RespDelete contains boolean returned from deleteAll
 type RespDelete struct {
 	Data struct {
-		DeleteAll struct {
-			Bool bool `json:"bool"`
-		} `json:"deleteAll"`
+		DeleteAll bool `json:"deleteAll"`
 	} `json:"data"`
 }
 
-// Wrapper func to help send the http request
-func (c *GraphqlClient) NewRequest(method string, body interface{}) ([]byte, error) {
+// NewRequest is a wrapper func to help send the http request
+func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error) {
 
 	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
 
@@ -103,7 +103,7 @@ func (c *GraphqlClient) NewRequest(method string, body interface{}) ([]byte, err
 			return nil, err
 		}
 	}
-	req, err := http.NewRequest(method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(ctx, method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (c *GraphqlClient) NewRequest(method string, body interface{}) ([]byte, err
 	req.Header.Set("Accept", "application/json")
 	req.AddCookie(c.sessionCookie)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := ctxhttp.Do(ctx, c.httpClient, req)
 	if err != nil {
 		return nil, err
 	}
@@ -127,15 +127,15 @@ func (c *GraphqlClient) NewRequest(method string, body interface{}) ([]byte, err
 	return respBytes, nil
 }
 
-// Creates new service
-func (c *GraphqlClient) CreateService(data *Data) (string, error) {
+// CreateService calls GoAlert's GraphQL api to create a new service within GoAlert
+func (c *GraphqlClient) CreateService(ctx context.Context, data *Data) (string, error) {
 
 	query := fmt.Sprintf(`mutation {createService(input:{name:%s,description:%s,favorite:%t,escalationPolicyID:%s}){id}}`,
 		strconv.Quote(data.Name), strconv.Quote(data.Description), data.Favorite, strconv.Quote(data.EscalationPolicyID))
 
 	query = strings.Replace(query, "\t", "", -1)
 	body := Q{Query: query}
-	respData, err := c.NewRequest("POST", body)
+	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
 		return "", err
 	}
@@ -148,15 +148,15 @@ func (c *GraphqlClient) CreateService(data *Data) (string, error) {
 	return r.Data.CreateService.ID, nil
 }
 
-// Creates new integration key
-func (c *GraphqlClient) CreateIntegrationKey(data *Data) (string, error) {
+// CreateIntegrationKey calls GoAlert's GraphQL api to create a new integration key
+func (c *GraphqlClient) CreateIntegrationKey(ctx context.Context, data *Data) (string, error) {
 
 	query := fmt.Sprintf(`mutation {createIntegrationKey(input:{serviceID:%s,type:%s,name:%s}){href}}`,
 		strconv.Quote(data.Id), data.Type, strconv.Quote(data.Name))
 
 	query = strings.Replace(query, "\t", "", -1)
 	body := Q{Query: query}
-	respData, err := c.NewRequest("POST", body)
+	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
 		return "", err
 	}
@@ -170,15 +170,15 @@ func (c *GraphqlClient) CreateIntegrationKey(data *Data) (string, error) {
 	return r.Data.CreateIntKey.Key, nil
 }
 
-// Creates new heartbeatmonitor
-func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
+// CreateHeartbeatMonitor calls GoAlert's GraphQL api to create a new heartbeat monitor for a GoAlert Service
+func (c *GraphqlClient) CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, error) {
 
 	query := fmt.Sprintf(`mutation {createHeartbeatMonitor(input: {serviceID: %s,name: %s,timeoutMinutes: %d }){href}}`,
 		strconv.Quote(data.Id), strconv.Quote(data.Name), data.Timeout)
 
 	query = strings.Replace(query, "\t", "", -1)
 	body := Q{Query: query}
-	respData, err := c.NewRequest("POST", body)
+	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
 		return "", err
 	}
@@ -191,8 +191,8 @@ func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
 	return r.Data.CreateHeartBeatKey.Key, nil
 }
 
-// Deletes service
-func (c *GraphqlClient) DeleteService(data *Data) error {
+// DeleteService calls GoAlert's GraphQL API to delete a GoAlert service
+func (c *GraphqlClient) DeleteService(ctx context.Context, data *Data) error {
 	query := fmt.Sprintf(`mutation {
 			deleteAll(input: {
 				id: %s,
@@ -202,7 +202,7 @@ func (c *GraphqlClient) DeleteService(data *Data) error {
 
 	query = strings.Replace(query, "\t", "", -1)
 	body := Q{Query: query}
-	respData, err := c.NewRequest("POST", body)
+	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func (c *GraphqlClient) DeleteService(data *Data) error {
 		return fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
 
-	if !r.Data.DeleteAll.Bool {
+	if !r.Data.DeleteAll {
 		return errors.New("failed to delete service")
 	}
 	return nil

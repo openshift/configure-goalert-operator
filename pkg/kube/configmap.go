@@ -6,7 +6,7 @@ import (
 )
 
 // GenerateConfigMap returns a configmap that can be created with the oc client
-func GenerateConfigMap(namespace string, cmName string, goalertHighServiceID, goalertLowServiceID, goalertHighEscalationPolicyID, goalertLowEscalationPlicyID string) *corev1.ConfigMap {
+func GenerateConfigMap(namespace string, cmName string, goalertHighServiceID, goalertLowServiceID, goalertHighEscalationPolicyID, goalertLowEscalationPolicyID string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
@@ -16,7 +16,7 @@ func GenerateConfigMap(namespace string, cmName string, goalertHighServiceID, go
 			"HIGH_SERVICE_ID":           goalertHighServiceID,
 			"LOW_SERVICE_ID":            goalertLowServiceID,
 			"HIGH_ESCALATION_POLICY_ID": goalertHighEscalationPolicyID,
-			"LOW_ESCALATION_POLICY_ID":  goalertLowEscalationPlicyID,
+			"LOW_ESCALATION_POLICY_ID":  goalertLowEscalationPolicyID,
 		},
 	}
 }
