@@ -143,7 +143,7 @@ func (c *GraphqlClient) CreateService(data *Data) (string, error) {
 	var r RespSvcData
 	err = json.Unmarshal(respData, &r)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
 	return r.Data.CreateService.ID, nil
 }
@@ -164,7 +164,7 @@ func (c *GraphqlClient) CreateIntegrationKey(data *Data) (string, error) {
 	var r RespIntKeyData
 	err = json.Unmarshal(respData, &r)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
 
 	return r.Data.CreateIntKey.Key, nil
@@ -186,7 +186,7 @@ func (c *GraphqlClient) CreateHeartbeatMonitor(data *Data) (string, error) {
 	var r RespHeartBeatData
 	err = json.Unmarshal(respData, &r)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
 	return r.Data.CreateHeartBeatKey.Key, nil
 }
@@ -210,7 +210,7 @@ func (c *GraphqlClient) DeleteService(data *Data) error {
 	var r RespDelete
 	err = json.Unmarshal(respData, &r)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
 
 	if !r.Data.DeleteAll.Bool {
