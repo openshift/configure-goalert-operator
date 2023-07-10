@@ -50,11 +50,13 @@ Note: The below commands expect you to have a running cluster and access to it. 
     - name: configure-goalert-operator
       image: <IMAGE_TAG>
     ```
+3. Create the namespace: `oc create ns configure-goalert-operator`
 3. Deploy the operator: `oc create -f deploy/`
 
 **Remove the operator**
 1. Delete the deployment and related manifests: `oc delete -f deploy/`
 2. Delete the CRD: `oc delete -f deploy/crds/goalert.managed.openshift.io_goalertintegrations.yaml`
+3. Delete the namespace: `oc delete ns configure-goalert-operator`
 
 
 **Run Tests**
