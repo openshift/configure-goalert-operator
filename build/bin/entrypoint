@@ -5,7 +5,7 @@
 
 if ! whoami &>/dev/null; then
   if [ -w /etc/passwd ]; then
-    echo "${USER_NAME:-aws-vpce-operator}:x:$(id -u):$(id -g):${USER_NAME:-aws-vpce-operator} user:${HOME}:/sbin/nologin" >> /etc/passwd
+    echo "${USER_NAME:-configure-goalert-operator}:x:$(id -u):$(id -g):${USER_NAME:-configure-goalert-operator} user:${HOME}:/sbin/nologin" >> /etc/passwd
   fi
 fi
 
