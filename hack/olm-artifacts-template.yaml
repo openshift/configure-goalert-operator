@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: olm-artifacts-template
+
+parameters:
+- name: REGISTRY_IMG
+  required: true
+- name:  GOALERT_ENDPOINT_URL
+  required: true
+- name: SERVICE_PREFIX
+  required: true
+- name: LOW_ESCALATION_POLICY
+  required: true
+- name: HIGH_ESCALATION_POLICY
+  required: true
+- name: SCALE_TEST_LEGALENTITY_IDS
+  value: '["None"]'
+- name: SILENT_ALERT_LEGALENTITY_IDS
+  value: '["None"]'
+- name: CHANNEL
+  value: staging
+- name: IMAGE_TAG
+  value: latest
+- name: REPO_DIGEST
+  required: true
+- name: FEDRAMP
+  value: "true"
+objects:
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: CatalogSource
+  metadata:
+    name: configure-goalert-operator-catalog
+  spec:
+    sourceType: grpc
+    grpcPodConfig:
+      securityContextConfig: restricted
+    image: ${REPO_DIGEST}
+    displayName: configure-goalert-operator Registry
+    publisher: SRE
+- apiVersion: operators.coreos.com/v1alpha2
+  kind: OperatorGroup
+  metadata:
+    name: configure-goalert-operator-og
+  spec:
+    targetNamespaces:
+    - configure-goalert-operator
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: configure-goalert-operator
+  spec:
+    channel: ${CHANNEL}
+    name: configure-goalert-operator
+    source: configure-goalert-operator-catalog
+    sourceNamespace: configure-goalert-operator
+    config:
+      env:
+        - name: FEDRAMP
+          value: "${FEDRAMP}"
+- apiVersion: goalert.managed.openshift.io/v1alpha1
+  kind: GoalertIntegration
+  metadata:
+    name: osd
+    namespace: configure-goalert-operator
+  spec:
+    lowEscalationPolicy: ${{LOW_ESCALATION_POLICY}}
+    highEscalationPolicy: ${{HIGH_ESCALATION_POLICY}}
+    servicePrefix: ${{SERVICE_PREFIX}}
+    goalertCredsSecretRef:
+      name: goalert-creds
+      namespace: configure-goalert-operator
+    clusterDeploymentSelector:
+      matchExpressions:
+      # only create Goalert service for managed (OSD) clusters
+      - key: api.openshift.com/managed
+        operator: In
+        values: ["true"]
+      # ignore CD if its a scale test organization
+      - key: api.openshift.com/legal-entity-id
+        operator: NotIn
+        values: ${{SCALE_TEST_LEGALENTITY_IDS}}
+      # ignore CD for alerts we wish to silence
+      - key: api.openshift.com/legal-entity-id
+        operator: NotIn
+        values: ${{SILENT_ALERT_LEGALENTITY_IDS}}
+      # ignore CD for any "nightly" clusters
+      - key: api.openshift.com/channel-group
+        operator: NotIn
+        values: ["nightly"]
+      # ignore CD w/ "legacy" noalerts label
+      - key: api.openshift.com/noalerts
+        operator: NotIn
+        values: ["true"]
+      # ignore CD w/ ext noalerts label
+      - key: ext-managed.openshift.io/noalerts
+        operator: NotIn
+        values: ["true"]
+    targetSecretRef:
+      name: goalert-secret
+      namespace: openshift-monitoring
