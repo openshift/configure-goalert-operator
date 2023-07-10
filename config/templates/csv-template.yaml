@@ -1,0 +1,46 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: configure-goalert-operator-0.0.1
+  namespace: placeholder
+  annotations:
+    categories: A list of comma separated categories that your operator falls under.
+    certified: "false"
+    description: Operator to manage registring clusters with GoAlert
+    containerImage: quay.io/app-sre/configure-goalert-operator:latest
+    createdAt: "2023-07-10T09:08:00Z"
+    support: Red Hat SRE
+spec:
+  displayName: configure-goalert-operator
+  description: Operator to  manage registring clusters with GoAlert
+  keywords:
+  - kubernetes
+  - ingress
+  - openshift
+  - multi-cluster
+  - cluster
+  version: 0.0.1
+  provider:
+    name: Red Hat, Inc
+  maturity: alpha
+  installModes:
+  - type: OwnNamespace
+    supported: true
+  - type: SingleNamespace
+    supported: true
+  - type: MultiNamespace
+    supported: false
+  - type: AllNamespaces
+    supported: false
+  install:
+    strategy: deployment
+    spec:
+      clusterPermissions:
+      - serviceAccountName: configure-goalert-operator
+        # Rules will be added here by boilerplate/openshift/golang-osd-operator/csv-generate
+      deployments:
+      - name: configure-goalert-operator
+        # Deployment spec will be added here by boilerplate/openshift/golang-osd-operator/csv-generate
+  customresourcedefinitions:
+    owned:
+    # CRD's will be added here by boilerplate/openshift/golang-osd-operator/csv-generate
