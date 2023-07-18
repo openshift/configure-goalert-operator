@@ -1,7 +1,8 @@
 # Configure GoAlert Operator
 
-The Configure GoAlert Operator (CGO) is used to automate integrating OpenShift clusters with GoAlert. This operator is designed
-to run on Hive clusters.
+The Configure GoAlert Operator (CGAO) is used to automate integrating OpenShift clusters with GoAlert. This operator is designed to run on Hive clusters.
+
+[![codecov](https://codecov.io/gh/openshift/configure-goalert-operator/branch/main/graph/badge.svg)](https://codecov.io/gh/openshift/configure-goalert-operator)
 
 ## High level design
 
@@ -45,7 +46,7 @@ Note: The below commands expect you to have a running cluster and access to it. 
 1. Create the CRD: `oc create -f deploy/crds/goalert.managed.openshift.io_goalertintegrations.yaml`
 2. Update the deployment for the image to run:
     ```shell
-    # deploy/05-operator.yaml
+    # deploy/04-operator.yaml
     containers:
     - name: configure-goalert-operator
       image: <IMAGE_TAG>
