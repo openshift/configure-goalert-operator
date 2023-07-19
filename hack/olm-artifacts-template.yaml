@@ -14,6 +14,14 @@ parameters:
   required: true
 - name: HIGH_ESCALATION_POLICY
   required: true
+- name: GOALERT_VPCE_SERVICE_NAME_EAST
+  required: true
+- name: GOALERT_VPCE_SERVICE_NAME_WEST
+  required: true
+- name: GOALERT_DOMAIN
+  required: true 
+- name: GOALERT_HOSTNAME
+  required: true 
 - name: SCALE_TEST_LEGALENTITY_IDS
   value: '["None"]'
 - name: SILENT_ALERT_LEGALENTITY_IDS
@@ -99,3 +107,93 @@ objects:
     targetSecretRef:
       name: goalert-secret
       namespace: openshift-monitoring
+- apiVersion: hive.openshift.io/v1
+  kind: SelectorSyncSet
+  metadata:
+    name: sss-goalert-vpce-east
+  spec:
+    clusterDeploymentSelector:
+      matchExpressions:
+      - key: api.openshift.com/fedramp
+        operator: In
+        values:
+        - "true"
+      - key: hive.openshift.io/cluster-region
+        operator: In
+        values:
+        - us-gov-east-1
+      - key: api.openshift.com/private-link
+        operator: In
+        values:
+        - "true"
+      matchLabels:
+        api.openshift.com/managed: "true"
+    resourceApplyMode: Sync
+    resources:
+    - apiVersion: avo.openshift.io/v1alpha2
+      kind: VpcEndpoint
+      metadata:
+        name: goalert
+        namespace: openshift-monitoring
+      spec:
+        serviceName: ${GOALERT_VPCE_SERVICE_NAME_EAST}
+        securityGroup:
+          ingressRules:
+            - fromPort: 443
+              toPort: 443
+              protocol: tcp
+        vpc:
+          autoDiscoverSubnets: true
+        customDns:
+          route53PrivateHostedZone:
+            autoDiscoverPrivateHostedZone: false
+            domainName: ${GOALERT_DOMAIN}
+            record:
+              hostname: ${GOALERT_HOSTNAME}
+              externalNameService:
+                name: goalert-vpce-svc
+- apiVersion: hive.openshift.io/v1
+  kind: SelectorSyncSet
+  metadata:
+    name: sss-goalert-vpce-west
+  spec:
+    clusterDeploymentSelector:
+      matchExpressions:
+      - key: api.openshift.com/fedramp
+        operator: In
+        values:
+        - "true"
+      - key: hive.openshift.io/cluster-region
+        operator: In
+        values:
+        - us-gov-west-1
+      - key: api.openshift.com/private-link
+        operator: In
+        values:
+        - "true"
+      matchLabels:
+        api.openshift.com/managed: "true"
+    resourceApplyMode: Sync
+    resources:
+    - apiVersion: avo.openshift.io/v1alpha2
+      kind: VpcEndpoint
+      metadata:
+        name: goalert
+        namespace: openshift-monitoring
+      spec:
+        serviceName: ${GOALERT_VPCE_SERVICE_NAME_WEST}
+        securityGroup:
+          ingressRules:
+            - fromPort: 443
+              toPort: 443
+              protocol: tcp
+        vpc:
+          autoDiscoverSubnets: true
+        customDns:
+          route53PrivateHostedZone:
+            autoDiscoverPrivateHostedZone: false
+            domainName: ${GOALERT_DOMAIN}
+            record:
+              hostname: ${GOALERT_HOSTNAME}
+              externalNameService:
+                name: goalert-vpce-svc
