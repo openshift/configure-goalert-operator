@@ -70,7 +70,7 @@ objects:
         - name: FEDRAMP
           value: "${FEDRAMP}"
         - name: GOALERT_ENDPOINT_URL
-          value: "${GOALERT_ENDPOINT_URL}"
+          value: ${GOALERT_ENDPOINT_URL}
 - apiVersion: goalert.managed.openshift.io/v1alpha1
   kind: GoalertIntegration
   metadata:
