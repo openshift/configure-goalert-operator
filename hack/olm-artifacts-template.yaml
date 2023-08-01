@@ -34,8 +34,6 @@ parameters:
   required: true
 - name: FEDRAMP
   value: "true"
-- name: GOALERT_ENDPOINT_URL
-  required: true
 
 objects:
 - apiVersion: operators.coreos.com/v1alpha1
