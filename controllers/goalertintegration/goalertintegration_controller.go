@@ -20,11 +20,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/net/context/ctxhttp"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"golang.org/x/net/context/ctxhttp"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -219,19 +220,13 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
 	}
 
-	// Build request headers
-	cookie := &http.Cookie{
-		Name:  "login_redir",
-		Value: goalertApiEndpoint + "/users",
-	}
 	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
-	authReq.AddCookie(cookie)
 
 	// Send HTTP request and get response
 	authResp, err := ctxhttp.Do(ctx, http.DefaultClient, authReq)
 	if err != nil {
-		r.reqLogger.Error(err, "Error sending HTTP request:", err)
+		r.reqLogger.Error(err, "Error sending HTTP request")
 	}
 
 	defer authResp.Body.Close()
