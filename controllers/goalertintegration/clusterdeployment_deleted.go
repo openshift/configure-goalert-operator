@@ -3,6 +3,7 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
@@ -47,6 +48,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 			})
 			if err != nil {
 				r.reqLogger.Error(err, "unable to delete service", "goalert high service id", goalertHighServiceID)
+				localmetrics.UpdateMetricCGAODeleteFailure(1, goalertHighServiceID)
 				return err
 			}
 		}
@@ -59,6 +61,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 			})
 			if err != nil {
 				r.reqLogger.Error(err, "unable to delete service %s", "goalert low service id", goalertLowServiceID)
+				localmetrics.UpdateMetricCGAODeleteFailure(1, goalertLowServiceID)
 				return err
 			}
 		}

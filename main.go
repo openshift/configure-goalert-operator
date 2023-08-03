@@ -18,6 +18,9 @@ package main
 
 import (
 	"flag"
+	"github.com/openshift/configure-goalert-operator/config"
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
+	"github.com/openshift/operator-custom-metrics/pkg/metrics"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -38,8 +41,10 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme      = runtime.NewScheme()
+	setupLog    = ctrl.Log.WithName("setup")
+	metricsPort = "8080"
+	metricsPath = "/metrics"
 )
 
 func init() {
@@ -98,17 +103,30 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+	if err = mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
+	// Configure custom metrics
+	metricsServer := metrics.NewBuilder(config.OperatorNamespace, config.OperatorName).
+		WithPort(metricsPort).
+		WithPath(metricsPath).
+		WithCollectors(localmetrics.MetricsList).
+		WithRoute().
+		GetConfig()
+
+	if err = metrics.ConfigureMetrics(ctrl.SetupSignalHandler(), *metricsServer); err != nil {
+		setupLog.Error(err, "failed to configure custom metrics")
+		os.Exit(1)
+	}
+
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err = mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
