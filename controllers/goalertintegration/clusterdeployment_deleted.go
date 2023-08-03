@@ -3,6 +3,7 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
+
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/openshift/configure-goalert-operator/pkg/goalert"
@@ -37,8 +38,8 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		})
 		if err != nil {
 			r.reqLogger.Error(err, "unable to delete service", "goalert high service id", goalertHighServiceID)
+			return err
 		}
-		return err
 	}
 
 	if goalertLowServiceID != "" {
@@ -49,8 +50,8 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		})
 		if err != nil {
 			r.reqLogger.Error(err, "unable to delete service %s", "goalert low service id", goalertLowServiceID)
+			return err
 		}
-		return err
 	}
 
 	secretToRemove := &v1.Secret{}
