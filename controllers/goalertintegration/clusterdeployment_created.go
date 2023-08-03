@@ -11,7 +11,7 @@ import (
 	"github.com/openshift/configure-goalert-operator/pkg/kube"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/log"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -110,7 +110,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 
 	// save config map
 	newCM := kube.GenerateConfigMap(cd.Namespace, strings.ToLower(configMapName), highSvcID, lowSvcID, highEscalationPolicyID, lowEscalationPolicyID)
-	if err = controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on configmap")
 		return err
 	}
@@ -131,18 +131,18 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKey, lowIntKey, heartbeatMonitorKey)
 	r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
 	//add reference
-	if err = controllerutil.SetControllerReference(cd, secret, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cd, secret, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on secret", "ClusterDeployment.Namespace", cd.Namespace)
 		return err
 	}
-	if err = r.Create(ctx, secret); err != nil {
+	if err := r.Create(ctx, secret); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
 		}
 
 		r.reqLogger.Info("the goalert secret exist, check if IntegrationKey are changed or not", "ClusterDeployment.Namespace", cd.Namespace)
 		sc := &corev1.Secret{}
-		err = r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: cd.Namespace}, sc)
+		err := r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: cd.Namespace}, sc)
 		if err != nil {
 			return nil
 		}
@@ -150,12 +150,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 			string(sc.Data[config.GoalertLowIntKey]) != lowIntKey ||
 			string(sc.Data[config.GoalertHeartbeatIntKey]) != heartbeatMonitorKey {
 			r.reqLogger.Info("Secret data have changed, delete the secret first")
-			if err = r.Delete(ctx, secret); err != nil {
+			if err := r.Delete(ctx, secret); err != nil {
 				log.Info("failed to delete existing goalert secret")
 				return err
 			}
 			r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
-			if err = r.Create(ctx, secret); err != nil {
+			if err := r.Create(ctx, secret); err != nil {
 				return err
 			}
 		}
@@ -172,7 +172,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		}
 		r.reqLogger.Info("syncset not found , create a new one on this ")
 		ss = kube.GenerateSyncSet(cd.Namespace, cd.Name, secret, gi)
-		if err = controllerutil.SetControllerReference(cd, ss, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(cd, ss, r.Scheme); err != nil {
 			r.reqLogger.Error(err, "Error setting controller reference on syncset", "ClusterDeployment.Namespace", cd.Namespace)
 			return err
 		}
