@@ -20,9 +20,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/url"
 	"os"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 
 	"golang.org/x/net/context/ctxhttp"
@@ -31,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -56,6 +58,8 @@ type GoalertIntegrationReconciler struct {
 	gclient   func(sessionCookie *http.Cookie) goalert.Client
 }
 
+var log = logf.Log.WithName("controller_goalertintegration")
+
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations/finalizers,verbs=update
@@ -70,7 +74,7 @@ type GoalertIntegrationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.reqLogger = log.FromContext(ctx).WithName("controller").WithName(ControllerName)
+	r.reqLogger = logf.FromContext(ctx).WithName("controller").WithName(ControllerName)
 
 	// Fetch the GoalertIntegration instance
 	gi := &goalertv1alpha1.GoalertIntegration{}
@@ -140,14 +144,14 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 			for i := range matchingClusterDeployments.Items {
 				clusterDeployment := allClusterDeployments.Items[i]
 				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
-					if err = r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
+					if err := r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
 						r.reqLogger.Error(err, "failing to remove cluster service from GoAlert")
 						return r.requeueOnErr(err)
 					}
 				}
 			}
 			if !controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
-				if err = r.Update(ctx, gi); err != nil {
+				if err := r.Update(ctx, gi); err != nil {
 					return r.requeueOnErr(err)
 				}
 			}
@@ -158,7 +162,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	//Make sure there's a finalizer on the GoalertIntegration
 	if !controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
 		if !controllerutil.AddFinalizer(gi, goalertFinalizer) {
-			if err = r.Update(ctx, gi); err != nil {
+			if err := r.Update(ctx, gi); err != nil {
 				return r.requeueOnErr(err)
 			}
 		}
@@ -169,10 +173,12 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if controllerutil.ContainsFinalizer(&cd, goalertFinalizer) {
 			cdDeleteTime := cd.DeletionTimestamp
 			if cdDeleteTime != nil {
-				if err = r.handleDelete(ctx, graphqlClient, gi, &cd); err != nil {
+				if err := r.handleDelete(ctx, graphqlClient, gi, &cd); err != nil {
 					r.reqLogger.Error(err, "failing to remove cluster service from GoAlert")
 					return r.requeueOnErr(err)
 				}
+				r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
+				controllerutil.RemoveFinalizer(&cd, goalertFinalizer)
 			}
 			cdMatches := false
 			for _, mcd := range matchingClusterDeployments.Items {
@@ -182,8 +188,10 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				}
 			}
 			if !cdMatches {
+				r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
+				controllerutil.RemoveFinalizer(&cd, goalertFinalizer)
 				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.Name)
-				err = r.handleDelete(ctx, graphqlClient, gi, &cd)
+				err := r.handleDelete(ctx, graphqlClient, gi, &cd)
 				if err != nil {
 					r.reqLogger.Error(err, "unmatched clusterdeployment, failed to remove associated goalert service", "clusterdeployment", cd.Name)
 				}
@@ -297,5 +305,23 @@ func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	r.gclient = goalert.NewClient
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&goalertv1alpha1.GoalertIntegration{}).
+		Watches(&source.Kind{Type: &hivev1.ClusterDeployment{}}, &enqueueRequestForClusterDeployment{
+			Client: mgr.GetClient(),
+		}).
+		Watches(&source.Kind{Type: &hivev1.SyncSet{}}, &enqueueRequestForClusterDeploymentOwner{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).
+		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &enqueueRequestForClusterDeploymentOwner{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).
+		Watches(&source.Kind{Type: &corev1.Secret{}}, &enqueueRequestForClusterDeploymentOwner{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).
+		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &enqueueRequestForConfigMap{
+			Client: mgr.GetClient(),
+		}).
 		Complete(r)
 }
