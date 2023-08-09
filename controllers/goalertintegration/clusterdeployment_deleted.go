@@ -24,7 +24,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	err := r.Get(ctx, types.NamespacedName{Name: cmData.Name, Namespace: cd.Namespace}, cmData)
 	if err != nil {
 		r.reqLogger.Error(err, "unable to fetch configmap", "configmap name", cmData.Name)
-		return err
+		r.doNotRequeue()
 	}
 
 	goalertHighServiceID := cmData.Data["HIGH_SERVICE_ID"]
