@@ -321,8 +321,5 @@ func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &enqueueRequestForConfigMap{
-			Client: mgr.GetClient(),
-		}).
 		Complete(r)
 }
