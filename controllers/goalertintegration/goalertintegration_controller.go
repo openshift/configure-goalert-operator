@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 
 	"golang.org/x/net/context/ctxhttp"
 
@@ -202,7 +203,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
-			if err := r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
+			if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
 				r.reqLogger.Error(err, "failing to register cluster with Goalert")
 			}
 		}
@@ -319,9 +320,6 @@ func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Watches(&source.Kind{Type: &corev1.Secret{}}, &enqueueRequestForClusterDeploymentOwner{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
-		}).
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &enqueueRequestForConfigMap{
-			Client: mgr.GetClient(),
 		}).
 		Complete(r)
 }
