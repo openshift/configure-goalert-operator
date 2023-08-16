@@ -33,9 +33,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		finalizer = config.GoalertFinalizerPrefix + gi.Name
 		// configMapName is the name of the ConfigMap containing the
 		// SERVICE_ID and INTEGRATION_ID
-		configMapName          = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
-		highEscalationPolicyID = gi.Spec.HighEscalationPolicy
-		lowEscalationPolicyID  = gi.Spec.LowEscalationPolicy
+		configMapName = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
 	)
 
 	if !controllerutil.ContainsFinalizer(cd, finalizer) {
@@ -108,23 +106,25 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		return err
 	}
 
-	// save config map
-	newCM := kube.GenerateConfigMap(cd.Namespace, strings.ToLower(configMapName), highSvcID, lowSvcID, highEscalationPolicyID, lowEscalationPolicyID)
-	if err := controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
-		r.reqLogger.Error(err, "Error setting controller reference on configmap")
-		return err
-	}
-
-	if err := r.Create(ctx, newCM); err != nil {
-		if errors.IsAlreadyExists(err) {
-			if updateErr := r.Update(ctx, newCM); updateErr != nil {
-				r.reqLogger.Error(err, "Error updating existing configmap", "Name", configMapName)
-				return err
-			}
-			return nil
+	if highSvcID != "" && lowSvcID != "" {
+		// save config map
+		newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID)
+		if err := controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
+			r.reqLogger.Error(err, "Error setting controller reference on configmap")
+			return err
 		}
-		r.reqLogger.Error(err, "Error creating configmap", "Name", configMapName)
-		return err
+
+		if err := r.Create(ctx, newCM); err != nil {
+			if errors.IsAlreadyExists(err) {
+				if updateErr := r.Update(ctx, newCM); updateErr != nil {
+					r.reqLogger.Error(err, "Error updating existing configmap", "Name", configMapName)
+					return err
+				}
+				return nil
+			}
+			r.reqLogger.Error(err, "Error creating configmap", "Name", configMapName)
+			return err
+		}
 	}
 
 	//add secret part
