@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -308,7 +307,7 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 
 	cmExists := false
 	cmName := config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
-	err := r.Get(ctx, types.NamespacedName{Name: cmName, Namespace: cd.Namespace}, &v1.ConfigMap{})
+	err := r.Get(ctx, types.NamespacedName{Name: cmName, Namespace: cd.Namespace}, &corev1.ConfigMap{})
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
