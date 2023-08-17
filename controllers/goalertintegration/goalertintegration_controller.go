@@ -26,13 +26,16 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"golang.org/x/net/context/ctxhttp"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -203,8 +206,14 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
-			if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
-				r.reqLogger.Error(err, "failing to register cluster with Goalert")
+			cmExists, secretExists, synsetExists, err := r.cgaoResourcesExist(ctx, gi, &cd)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			if !cmExists || !secretExists || !synsetExists {
+				if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
+					r.reqLogger.Error(err, "failing to register cluster with Goalert")
+				}
 			}
 		}
 	}
@@ -291,6 +300,41 @@ func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(ctx context
 	listOpts := &client.ListOptions{LabelSelector: selector}
 	err = r.List(ctx, matchingClusterDeployments, listOpts)
 	return matchingClusterDeployments, err
+}
+
+func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
+	r.reqLogger.Info("CHecking for CGAO resources")
+
+	r.reqLogger.Info("Checking if configmap exist")
+
+	cmExists := false
+	cmName := config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
+	err := r.Get(ctx, types.NamespacedName{Name: cmName, Namespace: cd.Namespace}, &v1.ConfigMap{})
+	if err != nil && !k8errors.IsNotFound(err) {
+		return false, false, false, err
+	}
+	cmExists = !k8errors.IsNotFound(err)
+
+	r.reqLogger.Info("Checking if secret exist")
+
+	secretExist := false
+	err = r.Client.Get(context.TODO(),
+		types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace},
+		&corev1.Secret{})
+	if err != nil && !k8errors.IsNotFound(err) {
+		return false, false, false, err
+	}
+	secretExist = !k8errors.IsNotFound(err)
+
+	r.reqLogger.Info("Checking if syncset exist")
+	syncSetExist := false
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
+	if err != nil && !k8errors.IsNotFound(err) {
+		return false, false, false, err
+	}
+	syncSetExist = !k8errors.IsNotFound(err)
+
+	return cmExists, secretExist, syncSetExist, nil
 }
 
 func (r *GoalertIntegrationReconciler) doNotRequeue() (reconcile.Result, error) {
