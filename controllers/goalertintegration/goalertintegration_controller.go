@@ -33,7 +33,6 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -310,10 +309,10 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	cmExists := false
 	cmName := config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
 	err := r.Get(ctx, types.NamespacedName{Name: cmName, Namespace: cd.Namespace}, &v1.ConfigMap{})
-	if err != nil && !k8errors.IsNotFound(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
-	cmExists = !k8errors.IsNotFound(err)
+	cmExists = !errors.IsNotFound(err)
 
 	r.reqLogger.Info("Checking if secret exist")
 
@@ -321,18 +320,18 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	err = r.Client.Get(context.TODO(),
 		types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace},
 		&corev1.Secret{})
-	if err != nil && !k8errors.IsNotFound(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
-	secretExist = !k8errors.IsNotFound(err)
+	secretExist = !errors.IsNotFound(err)
 
 	r.reqLogger.Info("Checking if syncset exist")
 	syncSetExist := false
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
-	if err != nil && !k8errors.IsNotFound(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
-	syncSetExist = !k8errors.IsNotFound(err)
+	syncSetExist = !errors.IsNotFound(err)
 
 	return cmExists, secretExist, syncSetExist, nil
 }
