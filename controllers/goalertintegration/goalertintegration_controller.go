@@ -353,17 +353,5 @@ func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Watches(&source.Kind{Type: &hivev1.ClusterDeployment{}}, &enqueueRequestForClusterDeployment{
 			Client: mgr.GetClient(),
 		}).
-		Watches(&source.Kind{Type: &hivev1.SyncSet{}}, &enqueueRequestForClusterDeploymentOwner{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &enqueueRequestForClusterDeploymentOwner{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, &enqueueRequestForClusterDeploymentOwner{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).
 		Complete(r)
 }
