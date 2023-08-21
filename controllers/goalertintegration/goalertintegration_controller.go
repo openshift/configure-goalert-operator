@@ -301,9 +301,7 @@ func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(ctx context
 }
 
 func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
-	r.reqLogger.Info("CHecking for CGAO resources")
-
-	r.reqLogger.Info("Checking if configmap exist")
+	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
 
 	cmExists := false
 	cmName := config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
@@ -312,8 +310,6 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 		return false, false, false, err
 	}
 	cmExists = !errors.IsNotFound(err)
-
-	r.reqLogger.Info("Checking if secret exist")
 
 	secretExist := false
 	err = r.Client.Get(context.TODO(),
@@ -324,7 +320,6 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	}
 	secretExist = !errors.IsNotFound(err)
 
-	r.reqLogger.Info("Checking if syncset exist")
 	syncSetExist := false
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
 	if err != nil && !errors.IsNotFound(err) {
