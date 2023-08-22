@@ -180,8 +180,9 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 					return r.requeueOnErr(err)
 				}
 				r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
+				baseToPatch := client.MergeFrom(cd.DeepCopy())
 				if !controllerutil.RemoveFinalizer(&cd, goalertFinalizer) {
-					if err := r.Update(ctx, &cd); err != nil {
+					if err := r.Patch(ctx, &cd, baseToPatch); err != nil {
 						r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
 					}
 				}
@@ -195,8 +196,9 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 			}
 			if !cdMatches {
 				r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
+				baseToPatch := client.MergeFrom(cd.DeepCopy())
 				if !controllerutil.RemoveFinalizer(&cd, goalertFinalizer) {
-					if err := r.Update(ctx, &cd); err != nil {
+					if err := r.Patch(ctx, &cd, baseToPatch); err != nil {
 						r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
 					}
 				}
