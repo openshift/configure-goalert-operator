@@ -180,7 +180,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 					return r.requeueOnErr(err)
 				}
 				r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
-				controllerutil.RemoveFinalizer(&cd, goalertFinalizer)
+				if !controllerutil.RemoveFinalizer(&cd, goalertFinalizer) {
+					if err := r.Update(ctx, &cd); err != nil {
+						r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
+					}
+				}
 			}
 			cdMatches := false
 			for _, mcd := range matchingClusterDeployments.Items {
@@ -191,7 +195,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 			}
 			if !cdMatches {
 				r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
-				controllerutil.RemoveFinalizer(&cd, goalertFinalizer)
+				if !controllerutil.RemoveFinalizer(&cd, goalertFinalizer) {
+					if err := r.Update(ctx, &cd); err != nil {
+						r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
+					}
+				}
 				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.Name)
 				err := r.handleDelete(ctx, graphqlClient, gi, &cd)
 				if err != nil {
