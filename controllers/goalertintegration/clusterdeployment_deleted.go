@@ -21,37 +21,53 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		return nil
 	}
 
+	// Evaluate edge-cases where Goalert service no longer needs to be deleted
+	deleteSvcBool := true
+
 	cmData := &v1.ConfigMap{Data: map[string]string{}}
 	cmData.Name = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
 	err := r.Get(ctx, types.NamespacedName{Name: cmData.Name, Namespace: cd.Namespace}, cmData)
 	if err != nil {
-		r.reqLogger.Error(err, "unable to fetch configmap", "configmap name", cmData.Name)
-		return err
-	}
-
-	goalertHighServiceID := cmData.Data["HIGH_SERVICE_ID"]
-	goalertLowServiceID := cmData.Data["LOW_SERVICE_ID"]
-
-	if goalertHighServiceID != "" {
-		r.reqLogger.Info("Deleting service", "goalert high service id", goalertHighServiceID)
-		err = gclient.DeleteService(ctx, &goalert.Data{
-			Id:      goalertHighServiceID,
-			Timeout: 15,
-		})
-		if err != nil {
-			r.reqLogger.Error(err, "unable to delete service", "goalert high service id", goalertHighServiceID)
+		if !errors.IsNotFound(err) {
+			// some error other than not found, requeue
 			return err
 		}
+		deleteSvcBool = false
 	}
 
-	if goalertLowServiceID != "" {
-		r.reqLogger.Info("Deleting service", "goalert low service id", goalertLowServiceID)
-		err = gclient.DeleteService(ctx, &goalert.Data{
-			Id:      goalertLowServiceID,
-			Timeout: 15,
-		})
+	if deleteSvcBool {
+		goalertHighServiceID := cmData.Data["HIGH_SERVICE_ID"]
+		goalertLowServiceID := cmData.Data["LOW_SERVICE_ID"]
+
+		if goalertHighServiceID != "" {
+			r.reqLogger.Info("Deleting service", "goalert high service id", goalertHighServiceID)
+			err = gclient.DeleteService(ctx, &goalert.Data{
+				Id:      goalertHighServiceID,
+				Timeout: 15,
+			})
+			if err != nil {
+				r.reqLogger.Error(err, "unable to delete service", "goalert high service id", goalertHighServiceID)
+				return err
+			}
+		}
+
+		if goalertLowServiceID != "" {
+			r.reqLogger.Info("Deleting service", "goalert low service id", goalertLowServiceID)
+			err = gclient.DeleteService(ctx, &goalert.Data{
+				Id:      goalertLowServiceID,
+				Timeout: 15,
+			})
+			if err != nil {
+				r.reqLogger.Error(err, "unable to delete service %s", "goalert low service id", goalertLowServiceID)
+				return err
+			}
+		}
+
+		r.reqLogger.Info("Deleting Goalert configmap for", "clusterdeployment:", cd.Name)
+		cmData.Namespace = cd.Namespace
+		err = r.Delete(ctx, cmData)
 		if err != nil {
-			r.reqLogger.Error(err, "unable to delete service %s", "goalert low service id", goalertLowServiceID)
+			r.reqLogger.Error(err, "unable to remove goalert configmap", "configmap", cmData.Name)
 			return err
 		}
 	}
@@ -81,6 +97,11 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	secretToRemove.Namespace = cd.Namespace
 	err = r.Delete(ctx, secretToRemove)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Return and don't requeue
+			return nil
+		}
 		r.reqLogger.Error(err, "unable to delete secret for", "clusterdeployment", cd.Name)
 		return err
 	}
@@ -90,15 +111,10 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	ssToRemove.Namespace = cd.Namespace
 	err = r.Delete(ctx, ssToRemove)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		r.reqLogger.Error(err, "unable to remove goalert syncset", "clusterdeployment", cd.Name)
-		return err
-	}
-
-	r.reqLogger.Info("Deleting Goalert configmap for", "clusterdeployment:", cd.Name)
-	cmData.Namespace = cd.Namespace
-	err = r.Delete(ctx, cmData)
-	if err != nil {
-		r.reqLogger.Error(err, "unable to remove goalert configmap", "configmap", cmData.Name)
 		return err
 	}
 
