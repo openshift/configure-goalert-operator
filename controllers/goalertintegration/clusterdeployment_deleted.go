@@ -11,6 +11,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
@@ -100,5 +102,15 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		return err
 	}
 
+	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
+	r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
+	baseToPatch := client.MergeFrom(cd.DeepCopy())
+	deleteFinalizer := controllerutil.RemoveFinalizer(cd, goalertFinalizer)
+	if !deleteFinalizer {
+		r.reqLogger.Error(err, "failed to update cd finalizer")
+	}
+	if err := r.Patch(ctx, cd, baseToPatch); err != nil {
+		r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
+	}
 	return nil
 }
