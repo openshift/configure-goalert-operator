@@ -79,7 +79,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 			r.reqLogger.Error(err, "unable to reconcile secret for", "clusterdeployment", cd.Name)
 			return err
 		}
-		r.reqLogger.Info("unable to locate goalert secret for cluster deployment, moving on", cd.Name)
+		r.reqLogger.Info("unable to locate goalert secret for cluster deployment, moving on", "clusterdeployment:", cd.Name)
 	}
 
 	ssToRemove := &hivev1.SyncSet{}
