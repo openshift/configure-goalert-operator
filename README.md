@@ -75,7 +75,12 @@ type: Opaque
 
 `configure-goalert-operator` doesn't start reconciling clusters until `spec.installed` is set to `true`.
 
-You can create a dummy ClusterDeployment by copying a real one from an active hive
+You can create a dummy ClusterDeployment by copying a real one from an active hive. Warning: deleting the copied CD may trigger the deletion of the AWS objects of the real CD. Set the following spec to keep hive from deprovisioning the resources 
+
+```
+spec:
+  preserveOnDelete: true
+```
 
 ```terminal
 real-hive$ oc get cd -n <namespace> <cdname> -o yaml > /tmp/fake-clusterdeployment.yaml
