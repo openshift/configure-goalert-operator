@@ -223,6 +223,16 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
+	for i := range matchingClusterDeployments.Items {
+		cd := matchingClusterDeployments.Items[i]
+		if cd.DeletionTimestamp == nil {
+			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, &cd)
+			if err != nil {
+				r.reqLogger.Error(err, "failed to check cluster heartbeatmonitor")
+			}
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 

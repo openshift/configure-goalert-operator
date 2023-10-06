@@ -2,12 +2,13 @@ package goalert
 
 import (
 	"encoding/json"
-	"golang.org/x/net/context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"golang.org/x/net/context"
 
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/stretchr/testify/assert"
@@ -239,6 +240,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 		name        string
 		data        *Data
 		expectedKey string
+		expectedId  string
 		respData    []byte
 		expectedErr bool
 	}{
@@ -250,7 +252,8 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 				Timeout: 15,
 			},
 			expectedKey: "/heartbeat-monitors/123",
-			respData:    []byte(`{"data":{"createHeartbeatMonitor":{"href":"/heartbeat-monitors/123"}}}`),
+			expectedId:  "123",
+			respData:    []byte(`{"data":{"createHeartbeatMonitor":{"href":"/heartbeat-monitors/123", "id":"123"}}}`),
 			expectedErr: false,
 		},
 		{
@@ -261,6 +264,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 				Timeout: 15,
 			},
 			expectedKey: "",
+			expectedId:  "",
 			respData:    []byte(`{"data":{"createHeartbeatMonitor":null}}`),
 			expectedErr: false,
 		},
@@ -272,6 +276,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 				Timeout: 15,
 			},
 			expectedKey: "",
+			expectedId:  "",
 			respData:    []byte(`tsrgafcvarvsgtrb`),
 			expectedErr: true,
 		},
@@ -298,11 +303,12 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 				httpClient: mockServer.Client(),
 			}
 
-			key, err := mockClient.CreateHeartbeatMonitor(ctx, test.data)
+			key, id, err := mockClient.CreateHeartbeatMonitor(ctx, test.data)
 			if test.expectedErr {
 				assert.NotNil(t, err)
 			} else {
 				assert.Equal(t, test.expectedKey, key)
+				assert.Equal(t, test.expectedId, id)
 				assert.Nil(t, err)
 			}
 		})
