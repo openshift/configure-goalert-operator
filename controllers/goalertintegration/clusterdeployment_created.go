@@ -3,6 +3,7 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"strings"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
@@ -42,7 +43,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		return r.Patch(ctx, cd, baseToPatch)
 	}
 
-	clusterID := GetClusterID(cd)
+	clusterID := getClusterID(cd)
 
 	// Load data to create new service in Goalert
 	dataHighSvc := &goalert.Data{
@@ -62,11 +63,13 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	highSvcID, err := gclient.CreateService(ctx, dataHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for High alerts")
+		localmetrics.UpdateMetricCGAOCreateFailure(1, dataHighSvc.Name)
 		return err
 	}
 	lowSvcID, err := gclient.CreateService(ctx, dataLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for Low alerts")
+		localmetrics.UpdateMetricCGAOCreateFailure(1, dataLowSvc.Name)
 		return err
 	}
 
@@ -184,7 +187,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	return nil
 }
 
-func GetClusterID(cd *hivev1.ClusterDeployment) string {
+func getClusterID(cd *hivev1.ClusterDeployment) string {
 	uid := strings.Split(cd.Namespace, "-")
 	return "fedramp-" + uid[len(uid)-1]
 }

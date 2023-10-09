@@ -2,7 +2,7 @@ package config
 
 const (
 	OperatorName             string = "configure-goalert-operator"
-	OperatorNamespace        string = "openshift-configure-goalert-operator"
+	OperatorNamespace        string = "configure-goalert-operator"
 	GoalertUsernameSecretKey string = "USERNAME"
 	GoalertPasswordSecretKey string = "PASSWORD"
 	GoalertHighIntKey        string = "GOALERT_URL_HIGH"

@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,7 +50,7 @@ import (
 )
 
 const (
-	ControllerName = "goalertintegration"
+	controllerName = "goalertintegration"
 )
 
 // GoalertIntegrationReconciler reconciles a GoalertIntegration object
@@ -76,7 +77,15 @@ var log = logf.Log.WithName("controller_goalertintegration")
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.reqLogger = logf.FromContext(ctx).WithName("controller").WithName(ControllerName)
+	start := time.Now()
+
+	r.reqLogger = logf.FromContext(ctx).WithValues("controller", controllerName)
+
+	defer func() {
+		dur := time.Since(start)
+		localmetrics.SetReconcileDuration(controllerName, dur.Seconds())
+		r.reqLogger.WithValues("Duration", dur).Info("Reconcile complete")
+	}()
 
 	// Fetch the GoalertIntegration instance
 	gi := &goalertv1alpha1.GoalertIntegration{}
@@ -93,13 +102,13 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// fetch all CDs, so we can inspect if they're dropped out of the matching CD list
-	allClusterDeployments, err := r.GetAllClusterDeployments(ctx)
+	allClusterDeployments, err := r.getAllClusterDeployments(ctx)
 	if err != nil {
 		return r.requeueOnErr(err)
 	}
 
 	// Fetch ClusterDeployments matching the GI's ClusterDeployment label selector
-	matchingClusterDeployments, err := r.GetMatchingClusterDeployments(ctx, gi)
+	matchingClusterDeployments, err := r.getMatchingClusterDeployments(ctx, gi)
 	if err != nil {
 		return r.requeueOnErr(err)
 	}
@@ -147,7 +156,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				clusterDeployment := allClusterDeployments.Items[i]
 				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
 					if err := r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
-						r.reqLogger.Error(err, "failing to remove cluster service from GoAlert")
+						r.reqLogger.Error(err, "failing to bulk remove cluster services from GoAlert")
 						return r.requeueOnErr(err)
 					}
 				}
@@ -200,11 +209,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
-			cmExists, secretExists, synsetExists, err := r.cgaoResourcesExist(ctx, gi, &cd)
+			cmExists, secretExists, syncsetExists, err := r.cgaoResourcesExist(ctx, gi, &cd)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			if !cmExists || !secretExists || !synsetExists {
+			if !cmExists || !secretExists || !syncsetExists {
 				if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
 					r.reqLogger.Error(err, "failing to register cluster with Goalert")
 				}
@@ -218,7 +227,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username string, password string) (*http.Response, error) {
 
 	// Create authentication endpoint
-	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
+	goalertApiEndpoint := config.GoalertApiEndpointEnvVar
 	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic"
 
 	// Create form data to be sent in the request body
@@ -278,13 +287,13 @@ func substringAfter(s string, sep string) string {
 	}
 }
 
-func (r *GoalertIntegrationReconciler) GetAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
 	return allClusterDeployments, err
 }
 
-func (r *GoalertIntegrationReconciler) GetMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&gi.Spec.ClusterDeploymentSelector)
 	if err != nil {
 		return nil, err
@@ -308,7 +317,7 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	cmExists = !errors.IsNotFound(err)
 
 	secretExist := false
-	err = r.Client.Get(context.TODO(),
+	err = r.Client.Get(ctx,
 		types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace},
 		&corev1.Secret{})
 	if err != nil && !errors.IsNotFound(err) {
