@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    name: configure-goalert-operator
+  name: configure-goalert-operator-metrics
+  namespace: configure-goalert-operator
+spec:
+  endpoints:
+    - port: metrics
+  namespaceSelector:
+    any: false
+    matchNames:
+      - configure-goalert-operator
+  selector:
+    matchLabels:
+      name: configure-goalert-operator
