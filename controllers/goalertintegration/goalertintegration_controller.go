@@ -20,11 +20,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -227,7 +229,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username string, password string) (*http.Response, error) {
 
 	// Create authentication endpoint
-	goalertApiEndpoint := config.GoalertApiEndpointEnvVar
+	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
 	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic"
 
 	// Create form data to be sent in the request body
