@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: configure-goalert-operator-test
+  namespace: configure-goalert-operator
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      name: configure-goalert-operator
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: configure-goalert-operator
+    spec:
+      containers:
+      - env:
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: configure-goalert-operator
+        - name: OPERATOR_IMAGE
+          value: quay.io/anatale/configure-goalert-operator:v0.1.99-d959f22
+        - name: FEDRAMP
+          value: "true"
+        - name: GOALERT_ENDPOINT_URL
+          value: https://goalert-api.goalert-stg.appsrefrs01ugw1.p1.openshiftusgov.com
+        - name: OPERATOR_CONDITION_NAME
+          value: configure-goalert-operator:v0.1.99-d959f22
+        image: quay.io/anatale/configure-goalert-operator:v0.1.99-d959f22
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: configure-goalert-operator
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 100m
+            memory: 2G
+          requests:
+            cpu: 100m
+            memory: 2G
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: configure-goalert-operator
+      serviceAccountName: configure-goalert-operator
+      terminationGracePeriodSeconds: 30
+
