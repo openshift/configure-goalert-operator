@@ -22,10 +22,16 @@ var (
 		Help:        "Metric for the number of failures deleting a Goalert service.",
 		ConstLabels: prometheus.Labels{"name": "configure-goalert-operator"},
 	}, []string{"service_name"})
+	MetricCGAOHeartbeatInactive = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "cgao_heartbeat_inactive",
+		Help:        "Metric for inactive heartbeatmonitors in Goalert",
+		ConstLabels: prometheus.Labels{"name": "configure-goalert-operator"},
+	}, []string{"service_name"})
 	MetricsList = []prometheus.Collector{
 		ReconcileDuration,
 		MetricCGAOCreateFailure,
 		MetricCGAODeleteFailure,
+		MetricCGAOHeartbeatInactive,
 	}
 )
 
@@ -44,6 +50,12 @@ func UpdateMetricCGAOCreateFailure(x int, svc string) {
 // UpdateMetricCGAODeleteFailure updates gauge to 1 when deletion fails
 func UpdateMetricCGAODeleteFailure(x int, svc string) {
 	MetricCGAODeleteFailure.With(prometheus.Labels{
+		"service_name": svc,
+	}).Set(float64(x))
+}
+
+func UpdateMetricCGAOHeartbeatInactive(x int, svc string) {
+	MetricCGAOHeartbeatInactive.With(prometheus.Labels{
 		"service_name": svc,
 	}).Set(float64(x))
 }

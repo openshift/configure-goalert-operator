@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context"
-	"golang.org/x/net/context/ctxhttp"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/context"
+	"golang.org/x/net/context/ctxhttp"
 
 	"github.com/openshift/configure-goalert-operator/config"
 )
@@ -20,9 +21,10 @@ import (
 type Client interface {
 	CreateService(ctx context.Context, data *Data) (string, error)
 	CreateIntegrationKey(ctx context.Context, data *Data) (string, error)
-	CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, error)
+	CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, string, error)
 	DeleteService(ctx context.Context, data *Data) error
 	NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error)
+	IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error)
 }
 
 // Wrapper for HTTP client
@@ -79,6 +81,7 @@ type RespHeartBeatData struct {
 	Data struct {
 		CreateHeartBeatKey struct {
 			Key string `json:"href"`
+			Id  string `json:"id"`
 		} `json:"createHeartbeatMonitor"`
 	} `json:"data"`
 }
@@ -87,6 +90,14 @@ type RespHeartBeatData struct {
 type RespDelete struct {
 	Data struct {
 		DeleteAll bool `json:"deleteAll"`
+	} `json:"data"`
+}
+
+type RespHeartbeatState struct {
+	Data struct {
+		Heatbeatmonitor struct {
+			LastState string `json:"lastState"`
+		} `json:"heartbeatMonitor"`
 	} `json:"data"`
 }
 
@@ -171,24 +182,24 @@ func (c *GraphqlClient) CreateIntegrationKey(ctx context.Context, data *Data) (s
 }
 
 // CreateHeartbeatMonitor calls GoAlert's GraphQL api to create a new heartbeat monitor for a GoAlert Service
-func (c *GraphqlClient) CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, error) {
+func (c *GraphqlClient) CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, string, error) {
 
-	query := fmt.Sprintf(`mutation {createHeartbeatMonitor(input: {serviceID: %s,name: %s,timeoutMinutes: %d }){href}}`,
+	query := fmt.Sprintf(`mutation {createHeartbeatMonitor(input: {serviceID: %s,name: %s,timeoutMinutes: %d }){href,id}}`,
 		strconv.Quote(data.Id), strconv.Quote(data.Name), data.Timeout)
 
 	query = strings.Replace(query, "\t", "", -1)
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	var r RespHeartBeatData
 	err = json.Unmarshal(respData, &r)
 	if err != nil {
-		return "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
+		return "", "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
-	return r.Data.CreateHeartBeatKey.Key, nil
+	return r.Data.CreateHeartBeatKey.Key, r.Data.CreateHeartBeatKey.Id, nil
 }
 
 // DeleteService calls GoAlert's GraphQL API to delete a GoAlert service
@@ -217,4 +228,29 @@ func (c *GraphqlClient) DeleteService(ctx context.Context, data *Data) error {
 		return errors.New("failed to delete service")
 	}
 	return nil
+}
+
+func (c *GraphqlClient) IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error) {
+	query := fmt.Sprintf(`query {
+		heartbeatMonitor(
+			id: %s,
+		){lastState}}`, strconv.Quote(data.Id))
+
+	query = strings.Replace(query, "\t", "", -1)
+	body := Q{Query: query}
+	respData, err := c.NewRequest(ctx, "POST", body)
+	if err != nil {
+		return false, err
+	}
+
+	var r RespHeartbeatState
+	err = json.Unmarshal(respData, &r)
+	if err != nil {
+		return false, fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
+	}
+
+	if r.Data.Heatbeatmonitor.LastState != "inactive" {
+		return false, nil
+	}
+	return true, nil
 }

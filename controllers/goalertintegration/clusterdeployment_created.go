@@ -103,7 +103,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		Timeout: 15,
 	}
 
-	heartbeatMonitorKey, err := gclient.CreateHeartbeatMonitor(ctx, dataHeartbeatMonitor)
+	heartbeatMonitorKey, heartbeatMonitorId, err := gclient.CreateHeartbeatMonitor(ctx, dataHeartbeatMonitor)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
@@ -111,7 +111,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 
 	if highSvcID != "" && lowSvcID != "" {
 		// save config map
-		newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID)
+		newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, heartbeatMonitorId)
 		if err := controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
 			r.reqLogger.Error(err, "Error setting controller reference on configmap")
 			return err
