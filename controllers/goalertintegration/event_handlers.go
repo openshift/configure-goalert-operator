@@ -58,6 +58,7 @@ func (e *enqueueRequestForClusterDeployment) toRequests(obj client.Object) []rec
 	}
 
 	for _, gai := range giList.Items {
+		gai := gai // gosec G601 compliance - avoid memory aliasing in for-loops
 		selector, err := metav1.LabelSelectorAsSelector(&gai.Spec.ClusterDeploymentSelector)
 		if err != nil {
 			continue
@@ -156,6 +157,7 @@ func (e *enqueueRequestForClusterDeploymentOwner) getAssociatedGoalertIntegratio
 	}
 
 	for _, gai := range gaiList.Items {
+		gai := gai // gosec G601 compliance - avoid memory aliasing in for-loops
 		selector, err := metav1.LabelSelectorAsSelector(&gai.Spec.ClusterDeploymentSelector)
 		if err != nil {
 			log.Error(err, "could not build ClusterDeployment label selector")
