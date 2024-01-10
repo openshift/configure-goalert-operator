@@ -1,4 +1,4 @@
-FROM quay.io/app-sre/boilerplate:image-v3.0.5 AS builder
+FROM quay.io/app-sre/boilerplate:image-v4.0.2 AS builder
 
 WORKDIR /workdir
 COPY go.mod go.mod
@@ -8,7 +8,7 @@ COPY . .
 RUN make go-build
 
 ####
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.8-1072
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.9-1108
 
 ENV USER_UID=1001 \
     USER_NAME=configure-goalert-operator
