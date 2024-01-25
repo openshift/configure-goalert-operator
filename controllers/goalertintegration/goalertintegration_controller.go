@@ -151,6 +151,18 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	graphqlClient := r.gclient(sessionCookie)
 	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
 
+	// Verify heartbeat monitor status
+	for i := range matchingClusterDeployments.Items {
+		cd := matchingClusterDeployments.Items[i]
+		if cd.DeletionTimestamp == nil {
+			r.reqLogger.Info("Checking %s heartbeat monitor", "clusterdeployment", cd.Name)
+			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, &cd)
+			if err != nil {
+				r.reqLogger.Error(err, "failed to check cluster heartbeatmonitor")
+			}
+		}
+	}
+
 	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
@@ -163,6 +175,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 					}
 				}
 			}
+
 			if !controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
 				if err := r.Update(ctx, gi); err != nil {
 					return r.requeueOnErr(err)
@@ -181,6 +194,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
+	// If CD is being deleted, remove service from Goalert
 	for i := range allClusterDeployments.Items {
 		cd := allClusterDeployments.Items[i]
 		if controllerutil.ContainsFinalizer(&cd, goalertFinalizer) {
@@ -208,6 +222,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
+	// Create service in Goalert
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
@@ -219,16 +234,6 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
 					r.reqLogger.Error(err, "failing to register cluster with Goalert")
 				}
-			}
-		}
-	}
-
-	for i := range matchingClusterDeployments.Items {
-		cd := matchingClusterDeployments.Items[i]
-		if cd.DeletionTimestamp == nil {
-			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, &cd)
-			if err != nil {
-				r.reqLogger.Error(err, "failed to check cluster heartbeatmonitor")
 			}
 		}
 	}

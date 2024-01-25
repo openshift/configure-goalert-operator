@@ -54,8 +54,16 @@ func UpdateMetricCGAODeleteFailure(x int, svc string) {
 	}).Set(float64(x))
 }
 
+// UpdateMetricCGAOHeartbeatInactive updates gauge to 1 when heartbeat is inactive
 func UpdateMetricCGAOHeartbeatInactive(x int, svc string) {
 	MetricCGAOHeartbeatInactive.With(prometheus.Labels{
 		"service_name": svc,
 	}).Set(float64(x))
+}
+
+// DeleteMetricCGAOHeartbeat removes heartbeat metrics for clusters in deletion
+func DeleteMetricCGAOHeartbeat(svc string) bool {
+	return MetricCGAOHeartbeatInactive.Delete(prometheus.Labels{
+		"service_name": svc,
+	})
 }

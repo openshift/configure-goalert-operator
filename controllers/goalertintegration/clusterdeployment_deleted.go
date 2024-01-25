@@ -3,6 +3,7 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
+
 	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
@@ -130,6 +131,12 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	}
 	if err := r.Patch(ctx, cd, baseToPatch); err != nil {
 		r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
+	}
+
+	r.reqLogger.Info("Cluster %s in deletion, deleting heartbeat metric", "clusterdeployment", cd.Name)
+	delMetric := localmetrics.DeleteMetricCGAOHeartbeat(cd.Name)
+	if !delMetric {
+		r.reqLogger.Error(err, "failed to delete heartbeat monitor metric")
 	}
 	return nil
 }
