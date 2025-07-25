@@ -1,4 +1,5 @@
-FROM quay.io/redhat-services-prod/openshift/boilerplate:image-v7.4.0 AS builder
+ARG BASE_IMAGE=quay.io/app-sre/boilerplate:image-v5.0.1
+FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /workdir
 COPY go.mod go.mod
