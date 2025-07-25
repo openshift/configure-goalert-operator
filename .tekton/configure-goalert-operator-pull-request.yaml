@@ -33,7 +33,7 @@ spec:
     value: .
   - name: build-args
     value:
-      - BASE_IMAGE=quay.io/app-sre/boilerplate:image-v5.0.1
+      - BASE_IMAGE=quay.io/redhat-services-prod/openshift/boilerplate:image-v5.0.1
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.
@@ -108,7 +108,7 @@ spec:
       name: build-args
       type: array
       default:
-        - BASE_IMAGE=quay.io/app-sre/boilerplate:image-v5.0.1
+        - BASE_IMAGE=quay.io/redhat-services-prod/openshift/boilerplate:image-v5.0.1
     - default: ""
       description: Path to a file with build arguments for buildah, see https://www.mankier.com/1/buildah-build#--build-arg-file
       name: build-args-file
