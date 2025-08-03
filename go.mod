@@ -3,7 +3,7 @@ module github.com/openshift/configure-goalert-operator
 go 1.19
 
 require (
-	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/logr v1.4.3
 	github.com/openshift/hive/apis v0.0.0-20230523160259-ef652d48df7d
 	github.com/openshift/operator-custom-metrics v0.5.1
 	github.com/pingcap/errors v0.11.4
