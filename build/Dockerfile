@@ -9,7 +9,7 @@ COPY . .
 RUN make go-build
 
 ####
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.10-1018
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.10-1753978370
 
 ENV USER_UID=1001 \
     USER_NAME=configure-goalert-operator
