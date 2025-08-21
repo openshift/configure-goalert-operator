@@ -1,4 +1,4 @@
-FROM quay.io/app-sre/boilerplate:image-v5.0.1 AS builder
+ARG BASE_IMAGE=quay.io/app-sre/boilerplate:image-v5.0.1
 FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /workdir
