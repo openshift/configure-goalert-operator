@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=quay.io/app-sre/boilerplate:image-v5.0.1
+FROM quay.io/app-sre/boilerplate:image-v5.0.1 AS builder
 FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /workdir
@@ -9,7 +9,7 @@ COPY . .
 RUN make go-build
 
 ####
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.10-1753978370
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.10-1755695263
 
 ENV USER_UID=1001 \
     USER_NAME=configure-goalert-operator
