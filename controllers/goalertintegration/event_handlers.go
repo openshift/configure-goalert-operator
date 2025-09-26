@@ -164,7 +164,7 @@ func (e *enqueueRequestForClusterDeploymentOwner) getAssociatedGoalertIntegratio
 			continue
 		}
 		for _, cd := range cds {
-			if selector.Matches(labels.Set(cd.ObjectMeta.GetLabels())) {
+			if selector.Matches(labels.Set(cd.GetLabels())) {
 				request := reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Name:      gai.Name,
