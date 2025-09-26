@@ -165,7 +165,7 @@ func (c *GraphqlClient) CreateIntegrationKey(ctx context.Context, data *Data) (s
 	query := fmt.Sprintf(`mutation {createIntegrationKey(input:{serviceID:%s,type:%s,name:%s}){href}}`,
 		strconv.Quote(data.Id), data.Type, strconv.Quote(data.Name))
 
-	query = strings.Replace(query, "\t", "", -1)
+	query = strings.ReplaceAll(query, "\t", "")
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
