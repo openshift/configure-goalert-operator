@@ -1,1 +1,0 @@
-LABEL com.redhat.component="openshift-configure-goalert-operator"       io.k8s.description="..."       description="..."       distribution-scope="public"       name="openshift/configure-goalert-operator"       url="https://github.com/openshift/configure-goalert-operator"       vendor="Red Hat, Inc."       release="v0.0.0"       version="v0.0.0"

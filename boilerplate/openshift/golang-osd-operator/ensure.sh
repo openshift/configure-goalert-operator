@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
+set -x
 set -eo pipefail
-
-if [ "$BOILERPLATE_SET_X" ]; then
-  set -x
-fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 source $REPO_ROOT/boilerplate/_lib/common.sh
 
-GOLANGCI_LINT_VERSION="2.0.2"
+GOLANGCI_LINT_VERSION="1.59.1"
 OPM_VERSION="v1.23.2"
 GRPCURL_VERSION="1.7.0"
 DEPENDENCY=${1:-}
@@ -22,8 +19,10 @@ golangci-lint)
         exit
     else
         mkdir -p "${GOPATH}/bin"
-        if ! echo "${PATH}" | grep -q "${GOPATH}/bin"; then
-            echo "${GOPATH}/bin not in $PATH"
+        echo "${PATH}" | grep -q "${GOPATH}/bin"
+        IN_PATH=$?
+        if [ $IN_PATH != 0 ]; then
+            echo "${GOPATH}/bin not in $$PATH"
             exit 1
         fi
         DOWNLOAD_URL="https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-${GOOS}-amd64.tar.gz"
