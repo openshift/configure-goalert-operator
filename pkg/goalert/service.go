@@ -144,7 +144,7 @@ func (c *GraphqlClient) CreateService(ctx context.Context, data *Data) (string, 
 	query := fmt.Sprintf(`mutation {createService(input:{name:%s,description:%s,favorite:%t,escalationPolicyID:%s}){id}}`,
 		strconv.Quote(data.Name), strconv.Quote(data.Description), data.Favorite, strconv.Quote(data.EscalationPolicyID))
 
-	query = strings.Replace(query, "\t", "", -1)
+	query = strings.ReplaceAll(query, "\t", "")
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
@@ -165,7 +165,7 @@ func (c *GraphqlClient) CreateIntegrationKey(ctx context.Context, data *Data) (s
 	query := fmt.Sprintf(`mutation {createIntegrationKey(input:{serviceID:%s,type:%s,name:%s}){href}}`,
 		strconv.Quote(data.Id), data.Type, strconv.Quote(data.Name))
 
-	query = strings.Replace(query, "\t", "", -1)
+	query = strings.ReplaceAll(query, "\t", "")
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
@@ -187,7 +187,7 @@ func (c *GraphqlClient) CreateHeartbeatMonitor(ctx context.Context, data *Data) 
 	query := fmt.Sprintf(`mutation {createHeartbeatMonitor(input: {serviceID: %s,name: %s,timeoutMinutes: %d }){href,id}}`,
 		strconv.Quote(data.Id), strconv.Quote(data.Name), data.Timeout)
 
-	query = strings.Replace(query, "\t", "", -1)
+	query = strings.ReplaceAll(query, "\t", "")
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
@@ -211,7 +211,7 @@ func (c *GraphqlClient) DeleteService(ctx context.Context, data *Data) error {
 			})
 		}`, strconv.Quote(data.Id))
 
-	query = strings.Replace(query, "\t", "", -1)
+	query = strings.ReplaceAll(query, "\t", "")
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
@@ -236,7 +236,7 @@ func (c *GraphqlClient) IsHeartbeatMonitorInactive(ctx context.Context, data *Da
 			id: %s,
 		){lastState}}`, strconv.Quote(data.Id))
 
-	query = strings.Replace(query, "\t", "", -1)
+	query = strings.ReplaceAll(query, "\t", "")
 	body := Q{Query: query}
 	respData, err := c.NewRequest(ctx, "POST", body)
 	if err != nil {
