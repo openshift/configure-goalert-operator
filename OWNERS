@@ -1,20 +1,36 @@
 reviewers:
-- robotmaxtron
-- tonytheleg
-- dustman9000
-- rhdedgar
 - theautoroboto
-- hbhushan3
 - katherinelc321
 - rojasreinold
 - jonahbrawley
 - pheckenlWork
 - fsferraz-rh
+- annelson-rh
+- cjnovak98
+- MrSantamaria
+- PeterCSRE
+- digilink
 approvers:
-- robotmaxtron
-- tonytheleg
-- dustman9000
+- theautoroboto
+- katherinelc321
+- rojasreinold
+- jonahbrawley
+- pheckenlWork
+- fsferraz-rh
+- annelson-rh
+- cjnovak98
+- MrSantamaria
+- PeterCSRE
+- digilink
 maintainers:
-- dustman9000
-- robotmaxtron
-- tonytheleg
+- theautoroboto
+- katherinelc321
+- rojasreinold
+- jonahbrawley
+- pheckenlWork
+- fsferraz-rh
+- annelson-rh
+- cjnovak98
+- MrSantamaria
+- PeterCSRE
+- digilink
