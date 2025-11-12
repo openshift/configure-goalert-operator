@@ -52,7 +52,11 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	}
 
 	clusterID, clusterName, err := func(gi *goalertv1alpha1.GoalertIntegration, obj client.Object) (string, string, error) {
-		switch gi.Spec.ClusterType {
+		clusterType := goalertv1alpha1.ClusterTypeHive
+		if gi.Spec.ClusterType != nil {
+			clusterType = *gi.Spec.ClusterType
+		}
+		switch clusterType {
 		case goalertv1alpha1.ClusterTypeHive:
 			cd := obj.(*hivev1.ClusterDeployment)
 			uid := strings.Split(cd.Namespace, "-")

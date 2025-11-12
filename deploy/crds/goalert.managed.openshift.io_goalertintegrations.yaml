@@ -38,7 +38,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: GoalertIntegrationSpec defines the desired state of GoalertIntegration
+            description: |-
+              GoalertIntegrationSpec defines the desired state of GoalertIntegration
+
+              INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+              Important: Run "make" to regenerate code after modifying this file
             properties:
               clusterDeploymentSelector:
                 description: |-
@@ -87,7 +91,9 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               clusterType:
-                description: ClusterType defines the type of cluster selector to use.
+                default: hive
+                description: ClusterType specifies which cluster selection logic to
+                  use.
                 enum:
                 - hive
                 - hypershift
@@ -130,7 +136,6 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - clusterDeploymentSelector
-            - clusterType
             - goalertCredsSecretRef
             - highEscalationPolicy
             - lowEscalationPolicy

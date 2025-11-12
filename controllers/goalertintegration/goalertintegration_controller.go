@@ -26,26 +26,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
-	"golang.org/x/net/context/ctxhttp"
-	corev1 "k8s.io/api/core/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"github.com/go-logr/logr"
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/openshift/configure-goalert-operator/pkg/goalert"
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"github.com/openshift/configure-goalert-operator/pkg/utils"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
+	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	"golang.org/x/net/context/ctxhttp"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -372,20 +371,16 @@ func (r *GoalertIntegrationReconciler) requeueOnErr(err error) (reconcile.Result
 // SetupWithManager sets up the controller with the Manager.
 func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.gclient = goalert.NewClient
-	c := ctrl.NewControllerManagedBy(mgr).
-		For(&goalertv1alpha1.GoalertIntegration{}).
-		Watches(&hivev1.ClusterDeployment{}, &enqueueRequestForClusterDeployment{
+	c := ctrl.NewControllerManagedBy(mgr).For(&goalertv1alpha1.GoalertIntegration{})
+	if r.IsHiveEnabled {
+		c.Watches(&hivev1.ClusterDeployment{}, &enqueueRequestForClusterDeployment{
 			Client: mgr.GetClient(),
 		})
-	if r.IsHiveEnabled {
-		//c.Watches(&source.Kind{Type: &hivev1.ClusterDeployment{}}, &enqueueRequestForClusterDeployment{
-		//	Client: mgr.GetClient(),
-		//})
 	}
 	if r.IsHypershiftEnabled {
-		//c.Watches(&source.Kind{Type: &hyperv1.HostedCluster{}}, &enqueueRequestForClusterDeployment{
-		//	Client: mgr.GetClient(),
-		//})
+		c.Watches(&hyperv1.HostedCluster{}, &enqueueRequestForClusterDeployment{
+			Client: mgr.GetClient(),
+		})
 	}
 	return c.Complete(r)
 }
