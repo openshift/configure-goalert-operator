@@ -25,10 +25,15 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // GoalertIntegrationSpec defines the desired state of GoalertIntegration
+//
+// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+// Important: Run "make" to regenerate code after modifying this file
 type GoalertIntegrationSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// A label selector used to find which clusterdeployment CRs receive a
+	// ClusterType specifies which cluster selection logic to use.
+	// +kubebuilder:default:="hive"
+	// +optional
+	ClusterType *ClusterType `json:"clusterType,omitempty"`
+	// A label selector used to find which cluster CRs receive a
 	// Goalert integration based on this configuration.
 	ClusterDeploymentSelector metav1.LabelSelector `json:"clusterDeploymentSelector"`
 	// Name and namespace in the target cluster where the secret is synced.
@@ -42,6 +47,17 @@ type GoalertIntegrationSpec struct {
 	// Reference to the secret containing Goalert cred
 	GoalertCredsSecretRef corev1.SecretReference `json:"goalertCredsSecretRef"`
 }
+
+// ClusterType defines the type of cluster selector to use.
+// +kubebuilder:validation:Enum=hive;hypershift
+type ClusterType string
+
+const (
+	// ClusterTypeHive indicates a Hive cluster selector.
+	ClusterTypeHive ClusterType = "hive"
+	// ClusterTypeHypershift indicates a Hypershift cluster selector.
+	ClusterTypeHypershift ClusterType = "hypershift"
+)
 
 // GoalertIntegrationStatus defines the observed state of GoalertIntegration
 type GoalertIntegrationStatus struct {

@@ -38,13 +38,15 @@ spec:
           metadata:
             type: object
           spec:
-            description: GoalertIntegrationSpec defines the desired state of GoalertIntegration
+            description: |-
+              GoalertIntegrationSpec defines the desired state of GoalertIntegration
+
+              INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+              Important: Run "make" to regenerate code after modifying this file
             properties:
               clusterDeploymentSelector:
                 description: |-
-                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file
-                  A label selector used to find which clusterdeployment CRs receive a
+                  A label selector used to find which cluster CRs receive a
                   Goalert integration based on this configuration.
                 properties:
                   matchExpressions:
@@ -88,6 +90,14 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
+              clusterType:
+                default: hive
+                description: ClusterType specifies which cluster selection logic to
+                  use.
+                enum:
+                - hive
+                - hypershift
+                type: string
               goalertCredsSecretRef:
                 description: Reference to the secret containing Goalert cred
                 properties:
