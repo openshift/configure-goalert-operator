@@ -58,7 +58,11 @@ const (
 // GoalertIntegrationReconciler reconciles a GoalertIntegration object
 type GoalertIntegrationReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
+	Scheme *runtime.Scheme
+
+	HiveEnabled       bool
+	HypershiftEnabled bool
+
 	reqLogger logr.Logger
 	gclient   func(sessionCookie *http.Cookie) goalert.Client
 }
@@ -152,11 +156,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
 
 	// Verify heartbeat monitor status
-	for i := range matchingClusterDeployments.Items {
-		cd := matchingClusterDeployments.Items[i]
-		if cd.DeletionTimestamp == nil {
-			r.reqLogger.Info("Checking %s heartbeat monitor", "clusterdeployment", cd.Name)
-			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, &cd)
+	for i := range matchingClusterDeployments {
+		cd := matchingClusterDeployments[i]
+		if cd.GetDeletionTimestamp() == nil {
+			r.reqLogger.Info("Checking %s heartbeat monitor", "clusterdeployment", cd.GetName())
+			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, cd)
 			if err != nil {
 				r.reqLogger.Error(err, "failed to check cluster heartbeatmonitor")
 			}
@@ -166,10 +170,10 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
-			for i := range matchingClusterDeployments.Items {
-				clusterDeployment := allClusterDeployments.Items[i]
-				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
-					if err := r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
+			for i := range matchingClusterDeployments {
+				clusterDeployment := allClusterDeployments[i]
+				if controllerutil.ContainsFinalizer(clusterDeployment, goalertFinalizer) {
+					if err := r.handleDelete(ctx, graphqlClient, gi, clusterDeployment); err != nil {
 						r.reqLogger.Error(err, "failing to bulk remove cluster services from GoAlert")
 						return r.requeueOnErr(err)
 					}
@@ -195,43 +199,43 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// If CD is being deleted, remove service from Goalert
-	for i := range allClusterDeployments.Items {
-		cd := allClusterDeployments.Items[i]
-		if controllerutil.ContainsFinalizer(&cd, goalertFinalizer) {
-			cdDeleteTime := cd.DeletionTimestamp
+	for i := range allClusterDeployments {
+		cd := allClusterDeployments[i]
+		if controllerutil.ContainsFinalizer(cd, goalertFinalizer) {
+			cdDeleteTime := cd.GetDeletionTimestamp()
 			if cdDeleteTime != nil {
-				if err := r.handleDelete(ctx, graphqlClient, gi, &cd); err != nil {
+				if err := r.handleDelete(ctx, graphqlClient, gi, cd); err != nil {
 					r.reqLogger.Error(err, "failing to remove cluster service from GoAlert")
 					return r.requeueOnErr(err)
 				}
 			}
 			cdMatches := false
-			for _, mcd := range matchingClusterDeployments.Items {
-				if cd.Namespace == mcd.Namespace && cd.Name == mcd.Name {
+			for _, mcd := range matchingClusterDeployments {
+				if cd.GetNamespace() == mcd.GetNamespace() && cd.GetName() == mcd.GetName() {
 					cdMatches = true
 					break
 				}
 			}
 			if !cdMatches {
-				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.Name)
-				err := r.handleDelete(ctx, graphqlClient, gi, &cd)
+				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.GetName())
+				err := r.handleDelete(ctx, graphqlClient, gi, cd)
 				if err != nil {
-					r.reqLogger.Error(err, "unmatched clusterdeployment, failed to remove associated goalert service", "clusterdeployment", cd.Name)
+					r.reqLogger.Error(err, "unmatched clusterdeployment, failed to remove associated goalert service", "clusterdeployment", cd.GetName())
 				}
 			}
 		}
 	}
 
 	// Create service in Goalert
-	for i := range matchingClusterDeployments.Items {
-		cd := matchingClusterDeployments.Items[i]
-		if cd.DeletionTimestamp == nil {
-			cmExists, secretExists, syncsetExists, err := r.cgaoResourcesExist(ctx, gi, &cd)
+	for i := range matchingClusterDeployments {
+		cd := matchingClusterDeployments[i]
+		if cd.GetDeletionTimestamp() == nil {
+			cmExists, secretExists, syncsetExists, err := r.cgaoResourcesExist(ctx, gi, cd)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 			if !cmExists || !secretExists || !syncsetExists {
-				if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
+				if err = r.handleCreate(ctx, graphqlClient, gi, cd); err != nil {
 					r.reqLogger.Error(err, "failing to register cluster with Goalert")
 				}
 			}
@@ -304,13 +308,17 @@ func substringAfter(s string, sep string) string {
 	}
 }
 
-func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) ([]client.Object, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
-	return allClusterDeployments, err
+	objects := make([]client.Object, len(allClusterDeployments.Items))
+	for i := range allClusterDeployments.Items {
+		objects[i] = &allClusterDeployments.Items[i]
+	}
+	return objects, err
 }
 
-func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
+func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) ([]client.Object, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&gi.Spec.ClusterDeploymentSelector)
 	if err != nil {
 		return nil, err
@@ -319,15 +327,19 @@ func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context
 	matchingClusterDeployments := &hivev1.ClusterDeploymentList{}
 	listOpts := &client.ListOptions{LabelSelector: selector}
 	err = r.List(ctx, matchingClusterDeployments, listOpts)
-	return matchingClusterDeployments, err
+	objects := make([]client.Object, len(matchingClusterDeployments.Items))
+	for i := range matchingClusterDeployments.Items {
+		objects[i] = &matchingClusterDeployments.Items[i]
+	}
+	return objects, err
 }
 
-func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
-	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
+func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd client.Object) (bool, bool, bool, error) {
+	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.GetName())
 
 	cmExists := false
-	cmName := config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
-	err := r.Get(ctx, types.NamespacedName{Name: cmName, Namespace: cd.Namespace}, &corev1.ConfigMap{})
+	cmName := config.Name(gi.Spec.ServicePrefix, cd.GetName(), config.ConfigMapSuffix)
+	err := r.Get(ctx, types.NamespacedName{Name: cmName, Namespace: cd.GetNamespace()}, &corev1.ConfigMap{})
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
@@ -335,7 +347,7 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 
 	secretExist := false
 	err = r.Get(ctx,
-		types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace},
+		types.NamespacedName{Name: config.SecretName, Namespace: cd.GetNamespace()},
 		&corev1.Secret{})
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
@@ -343,7 +355,7 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	secretExist = !errors.IsNotFound(err)
 
 	syncSetExist := false
-	err = r.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
+	err = r.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.GetNamespace()}, &hivev1.SyncSet{})
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}

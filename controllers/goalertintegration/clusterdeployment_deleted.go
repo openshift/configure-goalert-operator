@@ -4,11 +4,10 @@ package goalertintegration
 import (
 	"context"
 
-	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
-
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/openshift/configure-goalert-operator/pkg/goalert"
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,9 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
-
+func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd client.Object) error {
 	if cd == nil {
+		r.reqLogger.Info("Skipping deletion of nil cluster object")
 		return nil
 	}
 
@@ -27,8 +26,8 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	deleteSvcBool := true
 
 	cmData := &v1.ConfigMap{Data: map[string]string{}}
-	cmData.Name = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
-	err := r.Get(ctx, types.NamespacedName{Name: cmData.Name, Namespace: cd.Namespace}, cmData)
+	cmData.Name = config.Name(gi.Spec.ServicePrefix, cd.GetName(), config.ConfigMapSuffix)
+	err := r.Get(ctx, types.NamespacedName{Name: cmData.Name, Namespace: cd.GetNamespace()}, cmData)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			// some error other than not found, requeue
@@ -67,8 +66,8 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 			}
 		}
 
-		r.reqLogger.Info("Deleting Goalert configmap for", "clusterdeployment:", cd.Name)
-		cmData.Namespace = cd.Namespace
+		r.reqLogger.Info("Deleting Goalert configmap for", "clusterdeployment:", cd.GetName())
+		cmData.Namespace = cd.GetNamespace()
 		err = r.Delete(ctx, cmData)
 		if err != nil {
 			r.reqLogger.Error(err, "unable to remove goalert configmap", "configmap", cmData.Name)
@@ -78,63 +77,64 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 
 	deleteSecret := true
 	secretToRemove := &v1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, secretToRemove)
+	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.GetNamespace()}, secretToRemove)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			r.reqLogger.Error(err, "unable to reconcile secret for", "clusterdeployment", cd.Name)
+			r.reqLogger.Error(err, "unable to reconcile secret for", "clusterdeployment", cd.GetName())
 			return err
 		}
-		r.reqLogger.Info("unable to locate goalert secret for cluster deployment, moving on", "clusterdeployment:", cd.Name)
+		r.reqLogger.Info("unable to locate goalert secret for cluster deployment, moving on", "clusterdeployment:", cd.GetName())
 		deleteSecret = false
 	}
 
 	deleteSyncset := true
 	ssToRemove := &hivev1.SyncSet{}
-	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, ssToRemove)
+	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.GetNamespace()}, ssToRemove)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			r.reqLogger.Error(err, "unable to reconcile syncset for", "clusterdeployment name", cd.Name)
+			r.reqLogger.Error(err, "unable to reconcile syncset for", "clusterdeployment name", cd.GetName())
 			return err
 		}
-		r.reqLogger.Info("unable to locate goalert syncset for cluster deployment, moving on", "clusterdeployment", cd.Name)
+		r.reqLogger.Info("unable to locate goalert syncset for cluster deployment, moving on", "clusterdeployment", cd.GetName())
 		deleteSyncset = false
 	}
 
 	if deleteSecret {
-		r.reqLogger.Info("Deleting Goalert secret for", "clusterdeployment: ", cd.Name)
+		r.reqLogger.Info("Deleting Goalert secret for", "clusterdeployment: ", cd.GetName())
 		secretToRemove.Name = config.SecretName
-		secretToRemove.Namespace = cd.Namespace
+		secretToRemove.Namespace = cd.GetNamespace()
 		err = r.Delete(ctx, secretToRemove)
 		if err != nil {
-			r.reqLogger.Error(err, "unable to delete secret for", "clusterdeployment", cd.Name)
+			r.reqLogger.Error(err, "unable to delete secret for", "clusterdeployment", cd.GetName())
 			return err
 		}
 	}
 
 	if deleteSyncset {
-		r.reqLogger.Info("Deleting Goalert syncset for", "clusterdeployment:", cd.Name)
+		r.reqLogger.Info("Deleting Goalert syncset for", "clusterdeployment:", cd.GetName())
 		ssToRemove.Name = config.SecretName
-		ssToRemove.Namespace = cd.Namespace
+		ssToRemove.Namespace = cd.GetNamespace()
 		err = r.Delete(ctx, ssToRemove)
 		if err != nil {
-			r.reqLogger.Error(err, "unable to remove goalert syncset", "clusterdeployment", cd.Name)
+			r.reqLogger.Error(err, "unable to remove goalert syncset", "clusterdeployment", cd.GetName())
 			return err
 		}
 	}
 
 	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
-	r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
-	baseToPatch := client.MergeFrom(cd.DeepCopy())
-	deleteFinalizer := controllerutil.RemoveFinalizer(cd, goalertFinalizer)
-	if !deleteFinalizer {
+	r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.GetName())
+	modified := cd.DeepCopyObject().(client.Object)
+	if controllerutil.RemoveFinalizer(modified, goalertFinalizer) {
+		patch := client.MergeFrom(modified)
+		if err := r.Patch(ctx, cd, patch); err != nil {
+			r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.GetName())
+		}
+	} else {
 		r.reqLogger.Error(err, "failed to update cd finalizer")
 	}
-	if err := r.Patch(ctx, cd, baseToPatch); err != nil {
-		r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
-	}
 
-	r.reqLogger.Info("Cluster %s in deletion, deleting heartbeat metric", "clusterdeployment", cd.Name)
-	delMetric := localmetrics.DeleteMetricCGAOHeartbeat(cd.Name)
+	r.reqLogger.Info("Cluster %s in deletion, deleting heartbeat metric", "clusterdeployment", cd.GetName())
+	delMetric := localmetrics.DeleteMetricCGAOHeartbeat(cd.GetName())
 	if !delMetric {
 		r.reqLogger.Error(err, "failed to delete heartbeat monitor metric")
 	}

@@ -7,19 +7,19 @@ import (
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/openshift/configure-goalert-operator/pkg/goalert"
 	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
-	hivev1 "github.com/openshift/hive/apis/hive/v1"
 	"github.com/pingcap/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
+func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd client.Object) error {
 
 	cmData := &v1.ConfigMap{Data: map[string]string{}}
-	cmData.Name = config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
-	err := r.Get(ctx, types.NamespacedName{Name: cmData.Name, Namespace: cd.Namespace}, cmData)
+	cmData.Name = config.Name(gi.Spec.ServicePrefix, cd.GetName(), config.ConfigMapSuffix)
+	err := r.Get(ctx, types.NamespacedName{Name: cmData.Name, Namespace: cd.GetNamespace()}, cmData)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			// some error other than not found, requeue
@@ -47,12 +47,12 @@ func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context
 
 	if isHeartbeatmonitorInactive {
 		// Add metrics
-		localmetrics.UpdateMetricCGAOHeartbeatInactive(1, cd.Name)
+		localmetrics.UpdateMetricCGAOHeartbeatInactive(1, cd.GetName())
 	} else {
 		// If heartbeat is not inactive but metric value is more than 0, set to 0
-		if gauge, err := localmetrics.MetricCGAOHeartbeatInactive.GetMetricWithLabelValues(cd.Name); gauge != nil && err == nil {
+		if gauge, err := localmetrics.MetricCGAOHeartbeatInactive.GetMetricWithLabelValues(cd.GetName()); gauge != nil && err == nil {
 			if getMetricValue(gauge) > 0 {
-				localmetrics.UpdateMetricCGAOHeartbeatInactive(0, cd.Name)
+				localmetrics.UpdateMetricCGAOHeartbeatInactive(0, cd.GetName())
 			}
 		}
 	}
