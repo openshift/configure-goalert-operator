@@ -28,11 +28,10 @@ import (
 type GoalertIntegrationSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// A label selector used to find which clusterdeployment CRs receive a
+	
+	ClusterType ClusterType `json:"clusterType"`
+	// A label selector used to find which cluster CRs receive a
 	// Goalert integration based on this configuration.
-	//
-	// DEPRECATED: Use ClusterSelectorSpec instead.
 	ClusterDeploymentSelector metav1.LabelSelector `json:"clusterDeploymentSelector"`
 	// Name and namespace in the target cluster where the secret is synced.
 	TargetSecretRef corev1.SecretReference `json:"targetSecretRef"`
@@ -44,8 +43,6 @@ type GoalertIntegrationSpec struct {
 	ServicePrefix string `json:"servicePrefix"`
 	// Reference to the secret containing Goalert cred
 	GoalertCredsSecretRef corev1.SecretReference `json:"goalertCredsSecretRef"`
-
-	ClusterSelectorSpec *ClusterSelectorSpec `json:"clusterSelectorSpec,omitempty"`
 }
 
 // ClusterType defines the type of cluster selector to use.
@@ -58,29 +55,6 @@ const (
 	// ClusterTypeHypershift indicates a Hypershift cluster selector.
 	ClusterTypeHypershift ClusterType = "hypershift"
 )
-
-// ClusterSelectorSpec defines the discriminated union for cluster selection.
-// +union
-type ClusterSelectorSpec struct {
-	// Type is the discriminator field for this union.
-	// It specifies which selector type is active.
-	// +union:discriminator
-	Type ClusterType `json:"type"`
-	// Hive selects Hive cluster deployments.
-	// +union:member
-	Hive *HiveClusterSelectorSpec `json:"hive,omitempty"`
-	// Hypershift selects Hypershift hosted clusters.
-	// +union:member
-	Hypershift *HypershiftClusterSelectorSpec `json:"hypershift,omitempty"`
-}
-
-type HiveClusterSelectorSpec struct {
-	Selector metav1.LabelSelector `json:"clusterDeploymentSelector"`
-}
-
-type HypershiftClusterSelectorSpec struct {
-	Selector metav1.LabelSelector `json:"hostedClusterSelector"`
-}
 
 // GoalertIntegrationStatus defines the observed state of GoalertIntegration
 type GoalertIntegrationStatus struct {

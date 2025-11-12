@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"github.com/openshift/operator-custom-metrics/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -59,10 +60,18 @@ func init() {
 func main() {
 	var enableLeaderElection bool
 	var probeAddr string
+	var isHiveEnabled bool
+	var isHypershiftEnabled bool
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&isHiveEnabled, "hive-enabled", true,
+		"Enable Hive integration. "+
+			"Enabling this will cause the controller to watch for Hive clusterdeployment resources.")
+	flag.BoolVar(&isHypershiftEnabled, "hypershift-enabled", false,
+		"Enable Hypershift integration. "+
+			"Enabling this will cause the controller to watch for Hypershift hostedcluster resources.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -72,9 +81,11 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     "0",
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: "0",
+		},
+		//Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "7dc63a4f.managed.openshift.io",
@@ -96,8 +107,10 @@ func main() {
 	}
 
 	if err = (&goalertintegration.GoalertIntegrationReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		IsHiveEnabled:       isHiveEnabled,
+		IsHypershiftEnabled: isHypershiftEnabled,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoalertIntegration")
 		os.Exit(1)

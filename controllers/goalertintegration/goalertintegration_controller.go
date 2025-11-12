@@ -27,12 +27,9 @@ import (
 	"time"
 
 	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
-
+	"golang.org/x/net/context/ctxhttp"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"golang.org/x/net/context/ctxhttp"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,8 +57,8 @@ type GoalertIntegrationReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	HiveEnabled       bool
-	HypershiftEnabled bool
+	IsHiveEnabled       bool
+	IsHypershiftEnabled bool
 
 	reqLogger logr.Logger
 	gclient   func(sessionCookie *http.Cookie) goalert.Client
@@ -375,10 +372,20 @@ func (r *GoalertIntegrationReconciler) requeueOnErr(err error) (reconcile.Result
 // SetupWithManager sets up the controller with the Manager.
 func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.gclient = goalert.NewClient
-	return ctrl.NewControllerManagedBy(mgr).
+	c := ctrl.NewControllerManagedBy(mgr).
 		For(&goalertv1alpha1.GoalertIntegration{}).
-		Watches(&source.Kind{Type: &hivev1.ClusterDeployment{}}, &enqueueRequestForClusterDeployment{
+		Watches(&hivev1.ClusterDeployment{}, &enqueueRequestForClusterDeployment{
 			Client: mgr.GetClient(),
-		}).
-		Complete(r)
+		})
+	if r.IsHiveEnabled {
+		//c.Watches(&source.Kind{Type: &hivev1.ClusterDeployment{}}, &enqueueRequestForClusterDeployment{
+		//	Client: mgr.GetClient(),
+		//})
+	}
+	if r.IsHypershiftEnabled {
+		//c.Watches(&source.Kind{Type: &hyperv1.HostedCluster{}}, &enqueueRequestForClusterDeployment{
+		//	Client: mgr.GetClient(),
+		//})
+	}
+	return c.Complete(r)
 }

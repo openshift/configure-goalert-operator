@@ -26,23 +26,23 @@ type enqueueRequestForClusterDeployment struct {
 	Client client.Client
 }
 
-func (e *enqueueRequestForClusterDeployment) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeployment) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.Object, reqs)
 }
 
-func (e *enqueueRequestForClusterDeployment) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeployment) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.ObjectOld, reqs)
 	e.mapAndEnqueue(q, evt.ObjectNew, reqs)
 }
 
-func (e *enqueueRequestForClusterDeployment) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeployment) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.Object, reqs)
 }
 
-func (e *enqueueRequestForClusterDeployment) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeployment) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.Object, reqs)
 }
@@ -96,20 +96,20 @@ type enqueueRequestForClusterDeploymentOwner struct {
 	groupKind schema.GroupKind
 }
 
-func (e *enqueueRequestForClusterDeploymentOwner) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeploymentOwner) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestForClusterDeploymentOwner) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeploymentOwner) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.ObjectOld)
 	e.mapAndEnqueue(q, evt.ObjectNew)
 }
 
-func (e *enqueueRequestForClusterDeploymentOwner) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeploymentOwner) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 
-func (e *enqueueRequestForClusterDeploymentOwner) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForClusterDeploymentOwner) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 	e.mapAndEnqueue(q, evt.Object)
 }
 

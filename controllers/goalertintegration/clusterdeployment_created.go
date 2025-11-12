@@ -52,7 +52,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	}
 
 	clusterID, clusterName, err := func(gi *goalertv1alpha1.GoalertIntegration, obj client.Object) (string, string, error) {
-		switch gi.Spec.ClusterSelectorSpec.Type {
+		switch gi.Spec.ClusterType {
 		case goalertv1alpha1.ClusterTypeHive:
 			cd := obj.(*hivev1.ClusterDeployment)
 			uid := strings.Split(cd.Namespace, "-")
@@ -61,7 +61,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 			hc := obj.(*hyperv1.HostedCluster)
 			return hc.Spec.ClusterID, hc.Name, nil
 		default:
-			return "", "", fmt.Errorf("unsupported cluster type %q", gi.Spec.ClusterSelectorSpec.Type)
+			return "", "", fmt.Errorf("unsupported cluster type %q", gi.Spec.ClusterType)
 		}
 	}(gi, cd)
 	if err != nil {
