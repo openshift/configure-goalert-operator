@@ -63,7 +63,7 @@ func Test_NewRequest(t *testing.T) {
 	defer ts.Close()
 
 	// set the test server's URL as our GoAlert API endpoint
-	t.Setenv(config.GoalertApiEndpointEnvVar, ts.URL)
+	t.Setenv(config.GoalertAPIEndpointEnvVar, ts.URL)
 
 	// make the request
 	respBytes, err := client.NewRequest(ctx, method, body)
@@ -125,10 +125,12 @@ func Test_CreateService(t *testing.T) {
 		},
 	}
 
+	//nolint:dupl // The for loops in these tests all look similar to the
+	// linter, but they are testing different methods of mockClient.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				resp := test.respData
 
 				w.WriteHeader(http.StatusOK)
@@ -138,7 +140,7 @@ func Test_CreateService(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			t.Setenv(config.GoalertAPIEndpointEnvVar, mockServer.URL)
 			mockClient := &GraphqlClient{
 				sessionCookie: &http.Cookie{
 					Name: "test_cookie",
@@ -170,7 +172,7 @@ func Test_CreateIntegrationKey(t *testing.T) {
 		{
 			name: "Successful createIntegrationKey",
 			data: &Data{
-				Id:   "123",
+				ID:   "123",
 				Type: "test",
 				Name: "Test Integration Key",
 			},
@@ -181,7 +183,7 @@ func Test_CreateIntegrationKey(t *testing.T) {
 		{
 			name: "Unsuccessful createIntegrationKey",
 			data: &Data{
-				Id:   "123-badID",
+				ID:   "123-badID",
 				Type: "test",
 				Name: "Test Integration Key",
 			},
@@ -192,7 +194,7 @@ func Test_CreateIntegrationKey(t *testing.T) {
 		{
 			name: "Failed unmarshalling response",
 			data: &Data{
-				Id:   "123",
+				ID:   "123",
 				Type: "test",
 				Name: "Test Integration Key",
 			},
@@ -202,10 +204,12 @@ func Test_CreateIntegrationKey(t *testing.T) {
 		},
 	}
 
+	//nolint:dupl // The for loops in these tests all look similar to the
+	// linter, but they are testing different methods of mockClient.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				resp := test.respData
 
 				w.WriteHeader(http.StatusOK)
@@ -215,7 +219,7 @@ func Test_CreateIntegrationKey(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			t.Setenv(config.GoalertAPIEndpointEnvVar, mockServer.URL)
 			mockClient := &GraphqlClient{
 				sessionCookie: &http.Cookie{
 					Name: "test_cookie",
@@ -240,43 +244,43 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 		name        string
 		data        *Data
 		expectedKey string
-		expectedId  string
+		expectedID  string
 		respData    []byte
 		expectedErr bool
 	}{
 		{
 			name: "Successful createHeartbeatMonitor",
 			data: &Data{
-				Id:      "123",
+				ID:      "123",
 				Name:    "Test Heartbeat Monitor",
 				Timeout: 15,
 			},
 			expectedKey: "/heartbeat-monitors/123",
-			expectedId:  "123",
+			expectedID:  "123",
 			respData:    []byte(`{"data":{"createHeartbeatMonitor":{"href":"/heartbeat-monitors/123", "id":"123"}}}`),
 			expectedErr: false,
 		},
 		{
 			name: "Unsuccessful createHeartbeatMonitor",
 			data: &Data{
-				Id:      "123-badID",
+				ID:      "123-badID",
 				Name:    "Test Heartbeat Monitor",
 				Timeout: 15,
 			},
 			expectedKey: "",
-			expectedId:  "",
+			expectedID:  "",
 			respData:    []byte(`{"data":{"createHeartbeatMonitor":null}}`),
 			expectedErr: false,
 		},
 		{
 			name: "Failed unmarshalling response",
 			data: &Data{
-				Id:      "123",
+				ID:      "123",
 				Name:    "Test Heartbeat Monitor",
 				Timeout: 15,
 			},
 			expectedKey: "",
-			expectedId:  "",
+			expectedID:  "",
 			respData:    []byte(`tsrgafcvarvsgtrb`),
 			expectedErr: true,
 		},
@@ -285,7 +289,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				resp := test.respData
 
 				w.WriteHeader(http.StatusOK)
@@ -295,7 +299,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			t.Setenv(config.GoalertAPIEndpointEnvVar, mockServer.URL)
 			mockClient := &GraphqlClient{
 				sessionCookie: &http.Cookie{
 					Name: "test_cookie",
@@ -308,7 +312,7 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 				assert.NotNil(t, err)
 			} else {
 				assert.Equal(t, test.expectedKey, key)
-				assert.Equal(t, test.expectedId, id)
+				assert.Equal(t, test.expectedID, id)
 				assert.Nil(t, err)
 			}
 		})
@@ -326,7 +330,7 @@ func TestDeleteService(t *testing.T) {
 		{
 			name: "Successful deleteAll",
 			data: &Data{
-				Id: "123",
+				ID: "123",
 			},
 			respData:    []byte(`{"data":{"deleteAll":true}}`),
 			expectedErr: false,
@@ -334,7 +338,7 @@ func TestDeleteService(t *testing.T) {
 		{
 			name: "Unsuccessful deleteAll",
 			data: &Data{
-				Id: "123-badID",
+				ID: "123-badID",
 			},
 			respData:    []byte(`{"data":null}`),
 			expectedErr: true,
@@ -344,7 +348,7 @@ func TestDeleteService(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				resp := test.respData
 
 				w.WriteHeader(http.StatusOK)
@@ -354,7 +358,7 @@ func TestDeleteService(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			t.Setenv(config.GoalertAPIEndpointEnvVar, mockServer.URL)
 			mockClient := &GraphqlClient{
 				sessionCookie: &http.Cookie{
 					Name: "test_cookie",

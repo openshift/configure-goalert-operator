@@ -27,9 +27,9 @@ func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context
 		}
 	}
 
-	heartbeatmonitorId := cmData.Data["HEARTBEATMONITOR_ID"]
+	heartbeatmonitorID := cmData.Data["HEARTBEATMONITOR_ID"]
 
-	isHeartbeatmonitorInactive, err := gclient.IsHeartbeatMonitorInactive(ctx, &goalert.Data{Id: heartbeatmonitorId})
+	isHeartbeatmonitorInactive, err := gclient.IsHeartbeatMonitorInactive(ctx, &goalert.Data{ID: heartbeatmonitorID})
 	if err != nil {
 		return err
 	}

@@ -44,7 +44,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		if goalertHighServiceID != "" {
 			r.reqLogger.Info("Deleting service", "goalert high service id", goalertHighServiceID)
 			err = gclient.DeleteService(ctx, &goalert.Data{
-				Id:      goalertHighServiceID,
+				ID:      goalertHighServiceID,
 				Timeout: 15,
 			})
 			if err != nil {
@@ -57,7 +57,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		if goalertLowServiceID != "" {
 			r.reqLogger.Info("Deleting service", "goalert low service id", goalertLowServiceID)
 			err = gclient.DeleteService(ctx, &goalert.Data{
-				Id:      goalertLowServiceID,
+				ID:      goalertLowServiceID,
 				Timeout: 15,
 			})
 			if err != nil {

@@ -3,8 +3,9 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
-	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"strings"
+
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
@@ -75,12 +76,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 
 	// Load data to create integration key for alertmanager
 	dataIntKeyHighSvc := &goalert.Data{
-		Id:   highSvcID,
+		ID:   highSvcID,
 		Type: "prometheusAlertmanager",
 		Name: "High alerts",
 	}
 	dataIntKeyLowSvc := &goalert.Data{
-		Id:   lowSvcID,
+		ID:   lowSvcID,
 		Type: "prometheusAlertmanager",
 		Name: "Low alerts",
 	}
@@ -98,12 +99,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 
 	// Load data to create heartbeat monitor
 	dataHeartbeatMonitor := &goalert.Data{
-		Id:      highSvcID,
+		ID:      highSvcID,
 		Name:    clusterID,
 		Timeout: 15,
 	}
 
-	heartbeatMonitorKey, heartbeatMonitorId, err := gclient.CreateHeartbeatMonitor(ctx, dataHeartbeatMonitor)
+	heartbeatMonitorKey, heartbeatMonitorID, err := gclient.CreateHeartbeatMonitor(ctx, dataHeartbeatMonitor)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
@@ -111,7 +112,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 
 	if highSvcID != "" && lowSvcID != "" {
 		// save config map
-		newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, heartbeatMonitorId)
+		newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, heartbeatMonitorID)
 		if err := controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
 			r.reqLogger.Error(err, "Error setting controller reference on configmap")
 			return err
@@ -130,10 +131,10 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		}
 	}
 
-	//add secret part
+	// add secret part
 	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKey, lowIntKey, heartbeatMonitorKey)
 	r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
-	//add reference
+	// add reference
 	if err := controllerutil.SetControllerReference(cd, secret, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on secret", "ClusterDeployment.Namespace", cd.Namespace)
 		return err

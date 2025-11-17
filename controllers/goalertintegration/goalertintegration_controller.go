@@ -78,6 +78,10 @@ var log = logf.Log.WithName("controller_goalertintegration")
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
+
+// Reconcile - Reconcile Goalert with the fleet
+//
+//nolint:gocyclo
 func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	start := time.Now()
 
@@ -142,6 +146,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to auth to Goalert")
 	}
+	defer func() { _ = authenticateGoalert.Body.Close() }()
 
 	// Read session cookie from authentication response headers
 	sessionCookie, err := r.fetchSessionCookie(authenticateGoalert)
@@ -163,7 +168,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
+	// If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
 			for i := range matchingClusterDeployments.Items {
@@ -185,7 +190,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.doNotRequeue()
 	}
 
-	//Make sure there's a finalizer on the GoalertIntegration
+	// Make sure there's a finalizer on the GoalertIntegration
 	if !controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
 		if !controllerutil.AddFinalizer(gi, goalertFinalizer) {
 			if err := r.Update(ctx, gi); err != nil {
@@ -244,8 +249,8 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username string, password string) (*http.Response, error) {
 
 	// Create authentication endpoint
-	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
-	authUrl := goalertApiEndpoint + "/api/v2/identity/providers/basic"
+	goalertAPIEndpoint := os.Getenv(config.GoalertAPIEndpointEnvVar)
+	authURL := goalertAPIEndpoint + "/api/v2/identity/providers/basic"
 
 	// Create form data to be sent in the request body
 	form := url.Values{}
@@ -253,24 +258,25 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	form.Add("password", password)
 
 	// Encode form data and create HTTP request
-	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode()))
+	authReq, err := http.NewRequestWithContext(ctx, "POST", authURL, bytes.NewBufferString(form.Encode()))
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
 	}
 
 	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
+	authReq.Header.Set("Referer", goalertAPIEndpoint+"/alerts")
 
 	// Send HTTP request and get response
 	authResp, err := ctxhttp.Do(ctx, http.DefaultClient, authReq)
 	if err != nil {
 		r.reqLogger.Error(err, "Error sending HTTP request")
 	}
+	defer func() { _ = authResp.Body.Close() }()
 
-	defer authResp.Body.Close()
 	return authResp.Request.Response, nil
 }
 
+// ErrSessionCookieMissing - Missing Session Cookie Error
 var ErrSessionCookieMissing = fmt.Errorf("session cookie is missing")
 
 func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Response) (*http.Cookie, error) {
@@ -299,9 +305,8 @@ func substringAfter(s string, sep string) string {
 	substrings := strings.SplitAfter(s, sep)
 	if len(substrings) > 1 {
 		return substrings[1]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
