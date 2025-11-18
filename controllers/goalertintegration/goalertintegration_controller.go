@@ -78,6 +78,8 @@ var log = logf.Log.WithName("controller_goalertintegration")
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
+
+//nolint:gocyclo // This is a marker that we should think about a refactor here.
 func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	start := time.Now()
 
@@ -142,6 +144,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to auth to Goalert")
 	}
+	defer func() {
+		if err := authenticateGoalert.Body.Close(); err != nil {
+			r.reqLogger.Error(err, "Error closing http.Request Body")
+		}
+	}()
 
 	// Read session cookie from authentication response headers
 	sessionCookie, err := r.fetchSessionCookie(authenticateGoalert)
@@ -163,7 +170,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	//If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
+	// If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
 			for i := range matchingClusterDeployments.Items {
@@ -185,7 +192,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.doNotRequeue()
 	}
 
-	//Make sure there's a finalizer on the GoalertIntegration
+	// Make sure there's a finalizer on the GoalertIntegration
 	if !controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
 		if !controllerutil.AddFinalizer(gi, goalertFinalizer) {
 			if err := r.Update(ctx, gi); err != nil {
@@ -266,8 +273,12 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	if err != nil {
 		r.reqLogger.Error(err, "Error sending HTTP request")
 	}
+	defer func() {
+		if err := authResp.Body.Close(); err != nil {
+			r.reqLogger.Error(err, "Error closing http.Response Body")
+		}
+	}()
 
-	defer authResp.Body.Close()
 	return authResp.Request.Response, nil
 }
 

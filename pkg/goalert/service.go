@@ -128,7 +128,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -3,8 +3,9 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
-	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 	"strings"
+
+	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
 
 	goalertv1alpha1 "github.com/openshift/configure-goalert-operator/api/v1alpha1"
 	"github.com/openshift/configure-goalert-operator/config"
@@ -130,10 +131,10 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		}
 	}
 
-	//add secret part
+	// add secret part
 	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKey, lowIntKey, heartbeatMonitorKey)
 	r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
-	//add reference
+	// add reference
 	if err := controllerutil.SetControllerReference(cd, secret, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on secret", "ClusterDeployment.Namespace", cd.Namespace)
 		return err
