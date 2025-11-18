@@ -146,7 +146,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	defer func() {
 		if err := authenticateGoalert.Body.Close(); err != nil {
-			r.reqLogger.Error(err, "Error closing http.Request Body")
+			r.reqLogger.Error(err, "Error closing http.Response Body")
 		}
 	}()
 
