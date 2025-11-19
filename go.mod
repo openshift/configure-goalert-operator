@@ -4,7 +4,7 @@ go 1.23.11
 
 require (
 	github.com/go-logr/logr v1.2.3
-	github.com/openshift/hive/apis v0.0.0-20230523160259-ef652d48df7d
+	github.com/openshift/hive/apis 715614a9f379
 	github.com/openshift/operator-custom-metrics v0.5.1
 	github.com/pingcap/errors v0.11.4
 	github.com/prometheus/client_golang v1.12.2
