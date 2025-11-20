@@ -1,0 +1,53 @@
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosec
+    - bodyclose
+    - sqlclosecheck
+    - gofmt
+    - goimports
+    - revive
+    - ineffassign
+    - unconvert
+    - unparam
+    - prealloc
+    - nolintlint
+    - misspell
+    - gocritic
+    - gocyclo
+    - dupl
+    - gosimple
+    - unused
+
+linters-settings:
+  revive:
+    rules:
+      # Disable package comment requirement
+      - name: package-comments
+        disabled: true
+  errcheck:
+    # Report type assertions that don't check for errors
+    check-type-assertions: true
+    # Allow assignment to blank identifier: _ = resp.Body.Close()
+    check-blank: false
+    # Disable the built-in exclude list to catch Close() errors
+    disable-default-exclusions: true
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+
+issues:
+  # Which dirs to exclude: issues from them won't be reported
+  exclude-dirs:
+    - vendor
+  # Don't use default exclude patterns
+  exclude-use-default: false
+
+# Output configuration options
+output:
+  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate
+  formats:
+    - format: colored-line-number
