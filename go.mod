@@ -1,6 +1,8 @@
 module github.com/openshift/configure-goalert-operator
 
-go 1.23.11
+go 1.24.0
+
+toolchain go1.24.6
 
 require (
 	github.com/go-logr/logr v1.2.3
@@ -66,7 +68,7 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/oauth2 v0.27.0 // indirect
+	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
