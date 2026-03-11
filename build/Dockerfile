@@ -26,4 +26,4 @@ LABEL io.openshift.managed.name="configure-goalert-operator" \
       io.openshift.managed.description="Operator to manage registering clusters with GoAlert" \
       MAINTAINERS="ROSA GovCloud SREP Team (dfreiber-all)" \
       BUILD_REPO="https://github.com/openshift/configure-goalert-operator" \
-      CGAO_VER="v3.0.0"
+      version="v3.0.0"
