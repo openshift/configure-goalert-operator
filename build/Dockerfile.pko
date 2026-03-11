@@ -3,11 +3,12 @@ FROM scratch
 LABEL com.redhat.component="openshift-configure-goalert-operator" \
       io.k8s.description="configure-goalert-operator for OpenShift Dedicated" \
       description="configure-goalert-operator for OpenShift Dedicated" \
+      url="https://github.com/openshift/configure-goalert-operator" \
       distribution-scope="public" \
       name="openshift/configure-goalert-operator" \
       vendor="Red Hat, Inc." \
+      release="v3.0.0" \
       version="v3.0.0" \
-      MAINTAINERS="ROSA GovCloud SREP Team (dfreiber-all)" \
-      BUILD_REPO="https://github.com/openshift/configure-goalert-operator"
+      MAINTAINERS="ROSA GovCloud SREP Team (dfreiber-all)"
 
 COPY * /package/
