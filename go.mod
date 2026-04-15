@@ -9,7 +9,7 @@ require (
 	github.com/pingcap/errors v0.11.4
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/net v0.38.0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
@@ -22,7 +22,7 @@ require (
 	cloud.google.com/go v0.97.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.27 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.20 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.24 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
