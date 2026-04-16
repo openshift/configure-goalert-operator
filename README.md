@@ -20,6 +20,34 @@ To off-board clusters:
 
 * Controller will check the finalizer on ClusterDeployments when a cluster gets deleted and will remove all services and alerts in Goalert and objects created by the operator.
 
+## Tech Stack and Key Dependencies
+
+| Dependency | Version | Purpose |
+|---|---|---|
+| Go | 1.23 | Language runtime (FIPS-enabled build) |
+| [controller-runtime](https://pkg.go.dev/sigs.k8s.io/controller-runtime) | v0.13.0 | Kubernetes controller framework |
+| [OpenShift Hive APIs](https://github.com/openshift/hive) | -- | ClusterDeployment and SyncSet types |
+| [operator-custom-metrics](https://github.com/openshift/operator-custom-metrics) | v0.5.1 | Prometheus custom metrics server |
+| [openshift/boilerplate](https://github.com/openshift/boilerplate) | -- | Build infrastructure, CI tooling, Makefile targets |
+
+The operator communicates with the GoAlert API via raw HTTP/GraphQL (no GraphQL client library). The GoAlert endpoint is configured via the `GOALERT_ENDPOINT_URL` environment variable.
+
+## Project Structure
+
+```
+api/v1alpha1/                       # CRD types (GoalertIntegration)
+controllers/goalertintegration/     # Reconciler (create, delete, events, heartbeat)
+pkg/goalert/                        # GoAlert HTTP/GraphQL client
+pkg/kube/                           # Helpers for ConfigMap, Secret, SyncSet
+pkg/localmetrics/                   # Prometheus metrics (cgao_ prefix)
+pkg/utils/                          # Secret data loading utility
+config/                             # Operator constants and resource naming
+deploy/                             # Kubernetes manifests (RBAC, Deployment, etc.)
+build/                              # Dockerfiles
+```
+
+For a detailed breakdown of each package, see [AGENTS.md](AGENTS.md#package-layout).
+
 ## Development and Testing
 
 Changes made to the operator should be tested and validated before a PR is submitted and approved. 
@@ -146,3 +174,14 @@ If using [VScode](https://code.visualstudio.com/), you can use the following `la
     ]
 }
 ``` 
+
+## Documentation
+
+For deeper technical details, the following resources are available:
+
+- **[AGENTS.md](AGENTS.md)** -- Architecture overview, package layout, reconciliation flow, coding conventions, and known bugs. Useful as a comprehensive technical reference even though it is primarily aimed at AI agents.
+- **[docs/security-guidelines.md](docs/security-guidelines.md)** -- Credential handling, authentication flow, FIPS compliance, RBAC, and logging rules for secrets.
+- **[docs/error-handling-guidelines.md](docs/error-handling-guidelines.md)** -- Reconcile return conventions, Kubernetes error patterns, and error wrapping practices.
+- **[docs/api-contracts-guidelines.md](docs/api-contracts-guidelines.md)** -- CRD schema, GraphQL mutations/queries, resource naming, ConfigMap/Secret/SyncSet data keys, and Prometheus metrics contract.
+- **[docs/testing-guidelines.md](docs/testing-guidelines.md)** -- Table-driven test patterns, httptest mocking, assertion conventions, and coverage information.
+- **[docs/integration-guidelines.md](docs/integration-guidelines.md)** -- GoAlert client usage, Hive dual-watch pattern, SyncSet propagation, finalizer lifecycle, and resource creation/deletion order.

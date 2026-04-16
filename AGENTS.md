@@ -1,6 +1,16 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
+
+## Docs Index
+
+Detailed domain-specific guidelines live in `docs/`. Consult these before making changes in their respective areas:
+
+- **[Security Guidelines](docs/security-guidelines.md)** -- Credential handling, authentication flow, FIPS compliance, RBAC, injection prevention, container security, logging rules for secrets
+- **[Error Handling Guidelines](docs/error-handling-guidelines.md)** -- Reconcile return conventions (`doNotRequeue`/`requeueOnErr`), K8s error patterns (NotFound, AlreadyExists), log-and-continue vs log-and-return, error wrapping, sentinel errors
+- **[API Contracts Guidelines](docs/api-contracts-guidelines.md)** -- CRD schema, GraphQL mutations/queries, resource naming formula, ConfigMap/Secret/SyncSet data keys, Prometheus metrics contract
+- **[Testing Guidelines](docs/testing-guidelines.md)** -- Table-driven test pattern, httptest mocking, assertion conventions, coverage gaps, envtest setup
+- **[Integration Guidelines](docs/integration-guidelines.md)** -- GoAlert client usage, Hive dual-watch pattern, SyncSet propagation, finalizer lifecycle, heartbeat monitoring, resource creation/deletion order
 
 ## Project Overview
 
@@ -8,7 +18,7 @@ Configure GoAlert Operator (CGAO) automates integrating OpenShift clusters with 
 
 ## Build & Development Commands
 
-All build infrastructure comes from [openshift/boilerplate](https://github.com/openshift/boilerplate). The Makefile is minimal — it sets `FIPS_ENABLED=true` and includes boilerplate targets.
+All build infrastructure comes from [openshift/boilerplate](https://github.com/openshift/boilerplate). The Makefile is minimal -- it sets `FIPS_ENABLED=true` and includes boilerplate targets.
 
 ```bash
 # Build
@@ -40,63 +50,99 @@ Use `container-*` variants to match CI behavior exactly. These run inside the bo
 
 ## Architecture
 
-### CRD: GoalertIntegration (`api/v1alpha1/`)
+### Package Layout
 
-Single CRD with spec fields: `clusterDeploymentSelector` (label selector for which ClusterDeployments to integrate), `highEscalationPolicy`/`lowEscalationPolicy` (GoAlert policy IDs), `servicePrefix`, `targetSecretRef`, and `goalertCredsSecretRef`.
-
-### Controller (`controllers/goalertintegration/`)
-
-One reconciler split across multiple files:
-
-- **`goalertintegration_controller.go`** — Main reconcile loop. Watches GoalertIntegration + ClusterDeployment CRs. Authenticates to GoAlert via HTTP basic auth, gets session cookie, then delegates to create/delete handlers.
-- **`clusterdeployment_created.go`** — `handleCreate()`: Creates high/low GoAlert services, integration keys, heartbeat monitors, then creates a ConfigMap (service IDs), Secret (integration keys), and SyncSet (to replicate secret to target cluster).
-- **`clusterdeployment_deleted.go`** — `handleDelete()`: Deletes GoAlert services using IDs stored in the ConfigMap, cleans up ConfigMap/Secret/SyncSet, removes finalizer.
-- **`event_handlers.go`** — Custom event handler mapping ClusterDeployment events to GoalertIntegration reconcile requests.
-- **`heartbeatmonitor_check.go`** — Checks heartbeat monitor state, updates Prometheus metrics.
-
-### GoAlert Client (`pkg/goalert/`)
-
-Raw HTTP/GraphQL client (no GraphQL library). Uses session cookie auth. Implements `Client` interface for testability. All mutations are hand-built GraphQL query strings.
-
-### Supporting Packages
-
-- **`pkg/kube/`** — Helpers to build ConfigMap and SyncSet resources.
-- **`pkg/localmetrics/`** — Prometheus gauges/histograms prefixed `cgao_`.
-- **`pkg/utils/`** — Secret data loading helper.
-- **`config/`** — Operator constants (names, secret keys, env vars, finalizer prefix). The `Name()` function generates resource names as `{servicePrefix}-{clusterDeploymentName}{suffix}`.
+| Path | Purpose |
+|---|---|
+| `api/v1alpha1/` | CRD types (`GoalertIntegration`). See [API Contracts](docs/api-contracts-guidelines.md) for schema details. |
+| `controllers/goalertintegration/` | Reconciler split across 5 files: main loop, create handler, delete handler, event handlers, heartbeat check. |
+| `pkg/goalert/` | Raw HTTP/GraphQL client. Implements `Client` interface. See [Integration Guidelines](docs/integration-guidelines.md). |
+| `pkg/kube/` | Helpers to build ConfigMap, Secret, and SyncSet resources. |
+| `pkg/localmetrics/` | Prometheus gauges/histograms prefixed `cgao_`. See [API Contracts](docs/api-contracts-guidelines.md#prometheus-metrics-contract). |
+| `pkg/utils/` | `LoadSecretData` helper for reading Secret keys. |
+| `config/` | Operator constants (names, secret keys, env vars, finalizer prefix) and the `Name()` function for resource naming. |
+| `deploy/` | Kubernetes manifests including RBAC (ClusterRole), Deployment, ServiceMonitor. |
+| `deploy_pko/` | Package Kubernetes Operator variant of deploy manifests. |
+| `hack/` | OLM artifact templates and boilerplate license header. |
+| `build/` | Dockerfiles for the operator, OLM registry, and PKO images. |
 
 ### Key Dependencies
 
 - `sigs.k8s.io/controller-runtime` v0.13.0
-- `github.com/openshift/hive/apis` — ClusterDeployment, SyncSet types
+- `github.com/openshift/hive/apis` -- ClusterDeployment, SyncSet types
+- `github.com/openshift/operator-custom-metrics` -- Custom metrics server (replaces controller-runtime metrics)
 - GoAlert API endpoint configured via `GOALERT_ENDPOINT_URL` env var
 
-### Reconciliation Flow
+### Reconciliation Flow (Summary)
 
 1. Fetch GoalertIntegration CR
 2. List all ClusterDeployments + those matching the GI's label selector
-3. Authenticate to GoAlert (HTTP basic auth → session cookie)
+3. Authenticate to GoAlert (HTTP basic auth -> session cookie)
 4. Check heartbeat monitors for matching CDs
 5. Handle GI deletion: clean up all CDs with matching finalizer
 6. Handle CD deletion / label un-match: delete GoAlert services
 7. Handle CD creation: if ConfigMap/Secret/SyncSet don't exist, call `handleCreate`
 
-Finalizer pattern: `goalert.managed.openshift.io/goalert-{gi-name}` added to both GoalertIntegration and ClusterDeployment resources.
+For detailed create/delete ordering and cleanup logic, see [Integration Guidelines](docs/integration-guidelines.md).
 
-## Testing
+## Cross-Cutting Conventions
 
-Tests exist only for the GoAlert GraphQL client (`pkg/goalert/service_test.go`). They use `net/http/httptest` to mock the GoAlert API and `testify` for assertions.
+### Constants over String Literals
 
-Running the operator locally requires:
-- `KUBECONFIG` pointing to a cluster with Hive CRDs installed
-- `GOALERT_ENDPOINT_URL` env var set to a GoAlert instance
-- A GoalertIntegration CR with valid credentials secret
+All resource names, secret keys, environment variable names, and finalizer prefixes are defined as constants in `config/config.go`. Never use raw string literals for these values -- always reference the constants. This includes:
+- `config.SecretName`, `config.ConfigMapSuffix`
+- `config.GoalertHighIntKey`, `config.GoalertLowIntKey`, `config.GoalertHeartbeatIntKey`
+- `config.GoalertUsernameSecretKey`, `config.GoalertPasswordSecretKey`
+- `config.GoalertApiEndpointEnvVar`, `config.GoalertFinalizerPrefix`
+
+### Import Organization
+
+Follow the existing three-block import style used throughout the codebase:
+1. Standard library
+2. Third-party / external (including `github.com/openshift/...`, `github.com/pingcap/...`, etc.)
+3. Kubernetes libraries (`k8s.io/...`, `sigs.k8s.io/...`)
+
+Note: `clusterdeployment_created.go` and `clusterdeployment_deleted.go` include the `//goland:noinspection SpellCheckingInspection` directive. Maintain this in those files but do not add it to new files unless needed.
+
+### Controller Reference Pattern
+
+All secondary Kubernetes resources (ConfigMap, Secret, SyncSet) created by the operator must have `controllerutil.SetControllerReference(cd, resource, r.Scheme)` set to the ClusterDeployment, not the GoalertIntegration. This enables garbage collection when the CD is deleted.
+
+### Logging Conventions
+
+- Use `r.reqLogger` (scoped per reconcile) in controller methods. Use the package-level `log` variable only in event handlers where no reconciler receiver is available.
+- Structured logging: `r.reqLogger.Error(err, "message", "key", value)`. Never use `%s` format verbs in messages -- put dynamic values in key-value pairs.
+- Never log secret data. Service IDs and resource names are safe to log.
+
+### Generated Files -- Do Not Edit
+
+These files are auto-generated and must not be hand-edited:
+- `api/v1alpha1/zz_generated.deepcopy.go` -- regenerated by `make generate`
+- `api/v1alpha1/zz_generated.openapi.go` -- regenerated by `make generate`
+- `boilerplate/` directory -- managed by `make boilerplate-update`
+- `OWNERS_ALIASES` -- managed by boilerplate
+
+After changing CRD types in `api/v1alpha1/goalertintegration_types.go`, always run `make generate && make manifests`.
+
+### Scheme Registration
+
+Three schemes are registered in `main.go`: `clientgoscheme` (core K8s types), `hivev1` (Hive types), and `goalertv1alpha1` (operator CRD). If you add a new external type dependency, register its scheme in the `init()` function in `main.go`.
+
+### Metrics Server
+
+The operator uses `openshift/operator-custom-metrics` for Prometheus metrics, NOT controller-runtime's built-in metrics server. The controller-runtime `MetricsBindAddress` is set to `"0"` (disabled). New metrics must be appended to `localmetrics.MetricsList` for automatic registration.
+
+### Known Bugs
+
+1. **GI deletion bulk cleanup bug:** In `goalertintegration_controller.go`, the GI deletion loop iterates over `matchingClusterDeployments.Items` but indexes into `allClusterDeployments.Items[i]`. This can process the wrong ClusterDeployment. See [Integration Guidelines](docs/integration-guidelines.md#three-deletion-triggers) for details.
+2. **Auth failure continuation:** The controller logs auth/cookie errors but continues execution rather than returning early, risking nil-pointer panics on the session cookie. New code that depends on authentication should return early on auth failure.
+3. **Inverted finalizer logic:** The `AddFinalizer`/`RemoveFinalizer` calls on the GoalertIntegration check for `!result` before calling `Update`, which means they update when no change was made.
 
 ## CI/CD
 
-- **Tekton** pipelines in `.tekton/` for PR and push events
-- **Boilerplate** container image `v8.3.4` provides the CI environment
-- **Codecov** configured (`.codecov.yml`) — ignores `**/mocks` and `**/zz_generated*.go`
+- **Tekton** pipelines in `.tekton/` for PR and push events (both standard and PKO variants)
+- **Boilerplate** container image provides the CI environment
+- **Codecov** configured (`.codecov.yml`) -- ignores `**/mocks` and `**/zz_generated*.go`; coverage checks are informational only and will not block PRs
 - **Dependabot** watches Docker image versions in `build/`
 
 ## Owners
