@@ -166,7 +166,7 @@ If using [VScode](https://code.visualstudio.com/), you can use the following `la
             "mode": "auto",
             "program": "${workspaceFolder}/main.go",
             "env": {
-              "GOALERT_ENDPOINT_URL": "<Goalert endpoint>"
+              "GOALERT_ENDPOINT_URL": "<Goalert endpoint>",
               "KUBECONFIG": "<kubeconfig of cluster to run against>"
             },
             "args": []

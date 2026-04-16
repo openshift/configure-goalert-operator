@@ -115,7 +115,7 @@ The `pkg/utils` package uses `fmt.Errorf` without `%w` (no wrapping) for validat
 One sentinel error exists: `ErrSessionCookieMissing` defined at package level in the controller. Use package-level `var` with `fmt.Errorf` (not `errors.New`) for sentinel errors, matching the existing convention:
 
 ```go
-var ErrSessionCookieMissing = fmt.Errorf("session cookie is missing")
+var ErrSessionCookieMissing = errors.New("session cookie is missing")
 ```
 
 ## 7. Deferred Cleanup and Error Handling
