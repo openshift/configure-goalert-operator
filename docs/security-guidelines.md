@@ -30,18 +30,6 @@ Always reference constants from `config/config.go` when accessing Secret data. N
 - The existing code correctly logs only the error message on credential load failure, not the credential values. Maintain this pattern.
 - Log messages about secrets should reference the resource name or namespace, not data content: `r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)`.
 
-## Authentication Flow -- Known Bug
-
-The controller logs authentication errors but does **not** return early. After a failed `authGoalert()` or `fetchSessionCookie()`, execution continues with a nil or invalid session cookie, which will cause nil-pointer panics or unauthorized API calls. Any new code that depends on a valid session **must** check for auth failure and return early:
-
-```go
-if err != nil {
-    return r.requeueOnErr(err)
-}
-```
-
-This is documented as a known bug. Do not replicate the existing log-and-continue pattern for auth errors.
-
 ## GraphQL Injection Prevention
 
 All user-controlled values interpolated into GraphQL mutation strings in `pkg/goalert/service.go` must be wrapped with `strconv.Quote()`. The codebase already does this for `Name`, `Description`, `EscalationPolicyID`, and `Id` fields. Note that `data.Type` in `CreateIntegrationKey` is **not** quoted because it is an enum, not a string -- but if its source ever becomes user-controlled, it must be quoted or validated.
