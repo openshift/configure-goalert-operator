@@ -40,8 +40,6 @@ Used when the failure is unrecoverable for this reconcile pass:
 - `handleDelete` during GI deletion or CD deletion (returns `requeueOnErr`)
 - Updating finalizers on the GI
 
-**Known bug (auth failure continuation):** Authentication and cookie errors are logged but execution continues, risking nil-pointer panics when the session cookie is used. New code that depends on authentication should return early on auth failure rather than following the existing pattern.
-
 ## Kubernetes API Error Patterns
 
 ### NotFound Guard Pattern
