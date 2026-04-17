@@ -1,12 +1,19 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(golangci-lint *)",
-      "Bash(golangci-lint --version)",
-      "Bash(golangci-lint version *)",
-      "Bash(which golangci-lint)",
-      "Bash(which govulncheck)",
-      "Bash(govulncheck *)"
+    "allow": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-scan-commands.sh",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
