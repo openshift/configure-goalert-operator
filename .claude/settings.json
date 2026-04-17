@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(golangci-lint *)",
+      "Bash(golangci-lint --version)",
+      "Bash(golangci-lint version *)",
+      "Bash(which golangci-lint)",
+      "Bash(which govulncheck)",
+      "Bash(govulncheck *)"
+    ]
+  }
+}
