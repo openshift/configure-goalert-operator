@@ -18,8 +18,6 @@ Authentication is a two-step process performed every reconcile:
 1. POST form-encoded credentials to `/api/v2/identity/providers/basic` with a `Referer` header set to `{endpoint}/alerts`.
 2. Extract the `goalert_session.2` cookie from the redirect response's `Set-Cookie` header.
 
-**Known bug:** Auth errors are logged but execution continues, risking nil-pointer panics when `sessionCookie` is nil. New code that depends on the session cookie must return early on auth failure.
-
 ### GoAlert Resource Creation Order
 
 `handleCreate` creates GoAlert resources in this strict order:
@@ -93,13 +91,11 @@ Finalizer removal and GoAlert cleanup (`handleDelete`) is triggered by three con
 2. **CD deletion** (`cd.DeletionTimestamp != nil`): found by scanning `allClusterDeployments` for those with the finalizer.
 3. **Label un-match**: CD has the finalizer but is no longer in `matchingClusterDeployments`.
 
-**Known bug in GI deletion:** The loop iterates `matchingClusterDeployments.Items` but indexes into `allClusterDeployments.Items[i]`, processing the wrong CDs. Be aware of this when modifying the GI deletion path.
-
 ### Add/Remove Mechanics
 
 - **CD finalizer add:** Uses `client.MergeFrom(cd.DeepCopy())` patch, not a full Update. Returns early after patching so the next reconcile continues creation.
 - **CD finalizer remove:** Also uses MergeFrom patch in `handleDelete`.
-- **GI finalizer add/remove:** Uses `r.Update(ctx, gi)`. **Known bug:** The `AddFinalizer`/`RemoveFinalizer` calls check `!result` before calling Update, which inverts the intended logic (updates when no change was made).
+- **GI finalizer add/remove:** Uses `r.Update(ctx, gi)`. 
 
 ## Heartbeat Monitoring
 
