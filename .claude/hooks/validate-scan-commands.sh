@@ -123,9 +123,19 @@ read -ra TOKENS <<< "$COMMAND"
 # read -ra splits on whitespace without interpreting shell syntax, so
 # metacharacters could end up embedded in tokens that pass the allowlist.
 _METACHAR_RE='[;|&$`(){}<>!\\"'"'"']'
-if [[ "$COMMAND" =~ $_METACHAR_RE ]]; then
+if [[ "$ORIGINAL_COMMAND" =~ $_METACHAR_RE ]]; then
   deny "Command contains shell metacharacter"
 fi
+
+# Validate environment-variable prefix values
+for (( _i=0; _i<_STRIP; _i++ )); do
+  _prefix="${_NORM_TOKENS[$_i]}"
+  [[ "$_prefix" == "env" ]] && continue
+  _val="${_prefix#*=}"
+  if ! [[ "$_val" =~ ^[a-zA-Z0-9_.-]*$ ]]; then
+    deny "Unsafe value in environment variable prefix '$_prefix'"
+  fi
+done
 
 skip_next=false
 pending_flag=""
