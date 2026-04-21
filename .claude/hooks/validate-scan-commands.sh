@@ -2,8 +2,41 @@
 
 set -euo pipefail
 
+if ! command -v jq >/dev/null 2>&1; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"jq is required but not found"}}'
+  exit 0
+fi
+
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command')
+COMMAND=$(echo "$INPUT" | jq -e -r '.tool_input.command | select(type == "string")' 2>/dev/null) || COMMAND=""
+
+if [[ -z "$COMMAND" ]]; then
+  jq -n '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: "tool_input.command must be a non-empty string"
+    }
+  }'
+  exit 0
+fi
+
+ORIGINAL_COMMAND="$COMMAND"
+
+# Normalize: strip leading "env" and VAR=VALUE assignments so
+# "FOO=bar env BAZ=qux golangci-lint run" matches the case block.
+read -ra _NORM_TOKENS <<< "$COMMAND"
+_STRIP=0
+for _t in "${_NORM_TOKENS[@]}"; do
+  if [[ "$_t" == "env" || "$_t" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+    _STRIP=$((_STRIP + 1))
+  else
+    break
+  fi
+done
+if ((_STRIP > 0)); then
+  COMMAND="${_NORM_TOKENS[*]:$_STRIP}"
+fi
 
 # Only validate commands starting with our scan tools
 case "$COMMAND" in
@@ -41,14 +74,6 @@ declare -A ALLOWED=(
 
   # Known standalone values
   [./...]=1
-  [json]=1
-  [line-number]=1
-  [colored-line-number]=1
-  [tab]=1
-  [verbose]=1
-  [traces]=1
-  [.golangci.yaml]=1
-  [boilerplate/openshift/golang-osd-operator/golangci.yml]=1
 )
 
 # Regex validators for flag arguments (keyed by the flag)
@@ -64,15 +89,19 @@ validate_flag_arg() {
     --out-format)
       [[ "$value" =~ ^[a-z-]+$ ]] && return 0 ;;
     --new-from-rev)
-      [[ "$value" =~ ^[a-f0-9]+$ ]] && return 0 ;;
+      [[ "$value" =~ ^[A-Za-z0-9._/~^@-]+$ ]] && ! [[ "$value" =~ \.\. ]] && return 0 ;;
     -show)
       [[ "$value" =~ ^[a-z]+$ ]] && return 0 ;;
   esac
   return 1
 }
 
+LOG_DIR="${HOME:-/tmp}/tmp"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+LOG_FILE="$LOG_DIR/scan-commands-$(date +%Y-%m-%d).log"
+
 log() {
-  echo "$(date -Iseconds) decision=$1 command='$COMMAND' reason='$2'" >> /tmp/scan-commands.log
+  echo "$(date -Iseconds) decision=$1 command='$ORIGINAL_COMMAND' reason='$2'" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 deny() {
@@ -90,6 +119,14 @@ deny() {
 # Split command into tokens
 read -ra TOKENS <<< "$COMMAND"
 
+# Defense-in-depth: reject shell metacharacters before token validation.
+# read -ra splits on whitespace without interpreting shell syntax, so
+# metacharacters could end up embedded in tokens that pass the allowlist.
+_METACHAR_RE='[;|&$`(){}<>!\\"'"'"']'
+if [[ "$COMMAND" =~ $_METACHAR_RE ]]; then
+  deny "Command contains shell metacharacter"
+fi
+
 skip_next=false
 pending_flag=""
 
@@ -102,6 +139,23 @@ for i in "${!TOKENS[@]}"; do
     fi
     skip_next=false
     pending_flag=""
+    continue
+  fi
+
+  # Handle --flag=value combined form
+  if [[ "$token" == --*=* ]]; then
+    local_flag="${token%%=*}"
+    local_val="${token#*=}"
+    if [[ -z "${ALLOWED[$local_flag]+x}" ]]; then
+      deny "Unknown flag '$local_flag' in token '$token'"
+    fi
+    if [[ "${ALLOWED[$local_flag]}" == "2" ]]; then
+      if ! validate_flag_arg "$local_flag" "$local_val"; then
+        deny "Value '$local_val' failed validation as argument to '$local_flag'"
+      fi
+    else
+      deny "Flag '$local_flag' does not accept an argument but got '$local_val'"
+    fi
     continue
   fi
 
