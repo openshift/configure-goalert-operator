@@ -21,7 +21,7 @@ return r.requeueOnErr(err)
 
 ## Log-and-Continue vs Log-and-Return
 
-The codebase uses two distinct error handling strategies in the main `Reconcile()` function. Know which applies:
+The codebase uses two distinct error-handling strategies in the main `Reconcile()` function. Know which applies:
 
 ### Log-and-continue (do NOT return)
 

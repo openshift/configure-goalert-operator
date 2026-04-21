@@ -21,7 +21,7 @@ Always reference constants from `config/config.go` when accessing Secret data. N
 | `GoalertHighIntKey` | `GOALERT_URL_HIGH` | Key in generated goalert-secret |
 | `GoalertLowIntKey` | `GOALERT_URL_LOW` | Key in generated goalert-secret |
 | `GoalertHeartbeatIntKey` | `GOALERT_HEARTBEAT` | Key in generated goalert-secret |
-| `SecretName` | `goalert-secret` | Name of the Secret created per CD |
+| `SecretName` | `goalert-secret` | Fixed Secret name used in every CD namespace (not unique per CD) |
 
 ## Logging Rules for Secrets
 
