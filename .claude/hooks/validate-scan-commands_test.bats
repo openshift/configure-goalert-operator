@@ -9,7 +9,7 @@ setup() {
 run_hook() {
   local input
   input=$(jq -n --arg cmd "$1" '{ tool_input: { command: $cmd } }')
-  run bash -c 'echo "$1" | "$2"' _ "$input" "$SUT"
+  run bash -c 'printf "%s" "$1" | "$2"' _ "$input" "$SUT"
 }
 
 assert_allow() {
@@ -185,6 +185,33 @@ assert_passthrough() {
   assert_passthrough
 }
 
+# ── Deny: dangerous env-prefix values ─────────────────────────────
+
+@test "deny: env var with command substitution" {
+  run_hook 'FOO=$(id) golangci-lint run ./...'
+  assert_deny
+}
+
+@test "deny: env var with backtick substitution" {
+  run_hook 'FOO=`id` golangci-lint run ./...'
+  assert_deny
+}
+
+@test "deny: PATH manipulation" {
+  run_hook "PATH=/tmp/evil golangci-lint run ./..."
+  assert_deny
+}
+
+@test "deny: env PATH manipulation" {
+  run_hook "env PATH=/tmp/evil golangci-lint run ./..."
+  assert_deny
+}
+
+@test "deny: LD_PRELOAD injection" {
+  run_hook "LD_PRELOAD=/tmp/evil.so golangci-lint run ./..."
+  assert_deny
+}
+
 # ── Deny: unknown tokens ──────────────────────────────────────────
 
 @test "deny: unknown flag" {
@@ -330,31 +357,31 @@ assert_passthrough() {
 # ── Malformed input ────────────────────────────────────────────────
 
 @test "deny: empty JSON object" {
-  run bash -c 'echo "$1" | "$2"' _ '{}' "$SUT"
+  run bash -c 'printf "%s" "$1" | "$2"' _ '{}' "$SUT"
   [ "$status" -eq 0 ]
   assert_deny
 }
 
 @test "deny: missing command field" {
-  run bash -c 'echo "$1" | "$2"' _ '{"tool_input": {}}' "$SUT"
+  run bash -c 'printf "%s" "$1" | "$2"' _ '{"tool_input": {}}' "$SUT"
   [ "$status" -eq 0 ]
   assert_deny
 }
 
 @test "deny: non-JSON input" {
-  run bash -c 'echo "$1" | "$2"' _ 'not json at all' "$SUT"
+  run bash -c 'printf "%s" "$1" | "$2"' _ 'not json at all' "$SUT"
   [ "$status" -eq 0 ]
   assert_deny
 }
 
 @test "deny: empty input" {
-  run bash -c 'echo "$1" | "$2"' _ '' "$SUT"
+  run bash -c 'printf "%s" "$1" | "$2"' _ '' "$SUT"
   [ "$status" -eq 0 ]
   assert_deny
 }
 
 @test "deny: null command value" {
-  run bash -c 'echo "$1" | "$2"' _ '{"tool_input": {"command": null}}' "$SUT"
+  run bash -c 'printf "%s" "$1" | "$2"' _ '{"tool_input": {"command": null}}' "$SUT"
   [ "$status" -eq 0 ]
   assert_deny
 }
