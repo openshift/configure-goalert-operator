@@ -2,13 +2,17 @@
 
 set -euo pipefail
 
+if ((BASH_VERSINFO[0] < 4)); then
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"bash 4+ required (found %s)"}}\n' "$BASH_VERSION"
+  exit 0
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"jq is required but not found"}}'
   exit 0
 fi
 
-INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -e -r '.tool_input.command | select(type == "string")' 2>/dev/null) || COMMAND=""
+COMMAND=$(jq -e -r '.tool_input.command | select(type == "string")' 2>/dev/null) || COMMAND=""
 
 if [[ -z "$COMMAND" ]]; then
   jq -n '{
@@ -16,6 +20,17 @@ if [[ -z "$COMMAND" ]]; then
       hookEventName: "PreToolUse",
       permissionDecision: "deny",
       permissionDecisionReason: "tool_input.command must be a non-empty string"
+    }
+  }'
+  exit 0
+fi
+
+if (( ${#COMMAND} > 4096 )); then
+  jq -n '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: "Command exceeds maximum length (4096 characters)"
     }
   }'
   exit 0
@@ -35,7 +50,20 @@ for _t in "${_NORM_TOKENS[@]}"; do
   fi
 done
 if ((_STRIP > 0)); then
-  COMMAND="${_NORM_TOKENS[*]:$_STRIP}"
+  TOKENS=("${_NORM_TOKENS[@]:$_STRIP}")
+  COMMAND="${TOKENS[*]}"
+  if [[ -z "$COMMAND" ]]; then
+    jq -n --arg cmd "$ORIGINAL_COMMAND" '{
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: ("Command empty after normalization: " + $cmd)
+      }
+    }'
+    exit 0
+  fi
+else
+  TOKENS=("${_NORM_TOKENS[@]}")
 fi
 
 # Only validate commands starting with our scan tools
@@ -87,9 +115,11 @@ validate_flag_arg() {
     --timeout)
       [[ "$value" =~ ^[0-9]+[smh]$ ]] && return 0 ;;
     --out-format)
-      [[ "$value" =~ ^[a-z-]+$ ]] && return 0 ;;
+      case "$value" in
+        json|text|colored-line-number|line-number|tab|colored-tab|checkstyle|code-climate|html|junit-xml|github-actions|sarif|teamcity) return 0 ;;
+      esac ;;
     --new-from-rev)
-      [[ "$value" =~ ^[A-Za-z0-9._/~^@-]+$ ]] && ! [[ "$value" =~ \.\. ]] && return 0 ;;
+      (( ${#value} <= 128 )) && [[ "$value" =~ ^[A-Za-z0-9._/~^-]+$ ]] && ! [[ "$value" =~ \.\. ]] && return 0 ;;
     -show)
       [[ "$value" =~ ^[a-z]+$ ]] && return 0 ;;
   esac
@@ -97,12 +127,18 @@ validate_flag_arg() {
 }
 
 LOG_DIR="${HOME:-/tmp}/tmp"
-mkdir -p "$LOG_DIR" 2>/dev/null || true
-LOG_FILE="$LOG_DIR/scan-commands-$(date +%Y-%m-%d).log"
-(umask 077; touch "$LOG_FILE") 2>/dev/null || true
+if mkdir -p "$LOG_DIR" 2>/dev/null; then
+  chmod 700 "$LOG_DIR" 2>/dev/null || true
+else
+  echo "validate-scan-commands: WARNING: cannot create log directory '$LOG_DIR'" >&2
+fi
+LOG_FILE="$LOG_DIR/scan-commands-$(printf '%(%Y-%m-%d)T' -1).log"
+if ! (umask 077; touch "$LOG_FILE") 2>/dev/null; then
+  echo "validate-scan-commands: WARNING: cannot create log file '$LOG_FILE' — audit logging disabled" >&2
+fi
 
 log() {
-  echo "$(date -Iseconds) decision=$1 command='$ORIGINAL_COMMAND' reason='$2'" >> "$LOG_FILE" 2>/dev/null || true
+  echo "$(printf '%(%Y-%m-%dT%H:%M:%S%z)T' -1) decision=$1 command=$(printf '%q' "$ORIGINAL_COMMAND") reason=$(printf '%q' "$2")" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 deny() {
@@ -117,9 +153,6 @@ deny() {
   exit 0
 }
 
-# Split command into tokens
-read -ra TOKENS <<< "$COMMAND"
-
 # Defense-in-depth: reject shell metacharacters before token validation.
 # read -ra splits on whitespace without interpreting shell syntax, so
 # metacharacters could end up embedded in tokens that pass the allowlist.
@@ -132,7 +165,11 @@ fi
 for (( _i=0; _i<_STRIP; _i++ )); do
   _prefix="${_NORM_TOKENS[$_i]}"
   [[ "$_prefix" == "env" ]] && continue
+  _name="${_prefix%%=*}"
   _val="${_prefix#*=}"
+  if [[ "$_name" =~ ^(PATH|LD_PRELOAD|LD_LIBRARY_PATH|DYLD_.*|GOFLAGS|GOPROXY|GONOSUMCHECK|GONOSUMDB|GOPRIVATE|HOME)$ ]]; then
+    deny "Dangerous environment variable '$_name' in prefix '$_prefix'"
+  fi
   if ! [[ "$_val" =~ ^[a-zA-Z0-9_.-]*$ ]]; then
     deny "Unsafe value in environment variable prefix '$_prefix'"
   fi
