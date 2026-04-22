@@ -83,7 +83,7 @@ validate_flag_arg() {
 
   case "$flag" in
     -c|--config)
-      [[ "$value" =~ ^[a-zA-Z0-9_./-]+\.(ya?ml)$ ]] && return 0 ;;
+      [[ "$value" =~ ^[a-zA-Z0-9_./-]+\.(ya?ml)$ ]] && ! [[ "$value" =~ \.\. ]] && ! [[ "$value" =~ ^/ ]] && return 0 ;;
     --timeout)
       [[ "$value" =~ ^[0-9]+[smh]$ ]] && return 0 ;;
     --out-format)
@@ -99,6 +99,7 @@ validate_flag_arg() {
 LOG_DIR="${HOME:-/tmp}/tmp"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 LOG_FILE="$LOG_DIR/scan-commands-$(date +%Y-%m-%d).log"
+(umask 077; touch "$LOG_FILE") 2>/dev/null || true
 
 log() {
   echo "$(date -Iseconds) decision=$1 command='$ORIGINAL_COMMAND' reason='$2'" >> "$LOG_FILE" 2>/dev/null || true
