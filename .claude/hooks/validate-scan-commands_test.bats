@@ -116,6 +116,11 @@ assert_passthrough() {
   assert_allow
 }
 
+@test "allow: --new-from-rev with caret syntax" {
+  run_hook "golangci-lint run --new-from-rev HEAD^2 ./..."
+  assert_allow
+}
+
 @test "allow: --out-format with hyphenated format" {
   run_hook "golangci-lint run --out-format colored-line-number ./..."
   assert_allow
@@ -145,6 +150,11 @@ assert_passthrough() {
 
 @test "allow: --new-from-rev=main combined form" {
   run_hook "golangci-lint run --new-from-rev=main ./..."
+  assert_allow
+}
+
+@test "allow: multiple combined-form flags" {
+  run_hook "golangci-lint run --config=.golangci.yaml --timeout=5m --out-format=json ./..."
   assert_allow
 }
 
@@ -212,7 +222,22 @@ assert_passthrough() {
   assert_deny
 }
 
+@test "deny: env var value with special chars bypassing metachar check" {
+  run_hook "FOO=val%ue golangci-lint run ./..."
+  assert_deny
+}
+
+@test "deny: env var value with @ bypassing metachar check" {
+  run_hook "FOO=val@ue golangci-lint run ./..."
+  assert_deny
+}
+
 # ── Deny: unknown tokens ──────────────────────────────────────────
+
+@test "passthrough: which with extra arguments" {
+  run_hook "which golangci-lint foo"
+  assert_passthrough
+}
 
 @test "deny: unknown flag" {
   run_hook "golangci-lint run --evil ./..."
@@ -268,6 +293,31 @@ assert_passthrough() {
   assert_deny
 }
 
+@test "deny: --config with .. path traversal" {
+  run_hook "golangci-lint run --config ../../etc/config.yaml"
+  assert_deny
+}
+
+@test "deny: --config=.. combined form path traversal" {
+  run_hook "golangci-lint run --config=../../etc/config.yaml"
+  assert_deny
+}
+
+@test "deny: --config with absolute path" {
+  run_hook "golangci-lint run --config /etc/secrets/creds.yaml"
+  assert_deny
+}
+
+@test "deny: --config= with absolute path" {
+  run_hook "golangci-lint run --config=/etc/secrets/creds.yaml"
+  assert_deny
+}
+
+@test "deny: -c with .. path traversal" {
+  run_hook "golangci-lint run -c ../other/config.yml"
+  assert_deny
+}
+
 @test "deny: --timeout with invalid format" {
   run_hook "golangci-lint run --timeout forever"
   assert_deny
@@ -295,6 +345,16 @@ assert_passthrough() {
 
 @test "deny: --config= empty value combined form" {
   run_hook "golangci-lint run --config= ./..."
+  assert_deny
+}
+
+@test "deny: --timeout= empty value combined form" {
+  run_hook "golangci-lint run --timeout= ./..."
+  assert_deny
+}
+
+@test "deny: --out-format= empty value combined form" {
+  run_hook "golangci-lint run --out-format= ./..."
   assert_deny
 }
 
