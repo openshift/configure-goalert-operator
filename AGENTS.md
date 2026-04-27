@@ -12,6 +12,12 @@ Detailed domain-specific guidelines live in `docs/`. Consult these before making
 - **[Testing Guidelines](docs/testing-guidelines.md)** -- Table-driven test pattern, httptest mocking, assertion conventions, coverage gaps, envtest setup
 - **[Integration Guidelines](docs/integration-guidelines.md)** -- GoAlert client usage, Hive dual-watch pattern, SyncSet propagation, finalizer lifecycle, heartbeat monitoring, resource creation/deletion order
 
+## Review Exclusions
+
+When reviewing code changes, exclude the following paths from findings. These files are maintained externally and reviewed separately:
+
+- `.claude/hooks/` -- Claude Code hook scripts and their tests
+
 ## Project Overview
 
 Configure GoAlert Operator (CGAO) automates integrating OpenShift clusters with GoAlert for alerting. It runs on Hive management clusters, watching `GoalertIntegration` CRs and `ClusterDeployment` CRs to create/delete GoAlert services and sync alert credentials to managed clusters via SyncSets.
