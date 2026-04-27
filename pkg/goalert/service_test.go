@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/stretchr/testify/assert"

@@ -59,7 +59,7 @@ for _, test := range tests {
 
 Rules:
 - Each test case struct must have a `name` field used in `t.Run`
-- Include three scenario types per method: success, unsuccessful (valid response but empty/null data), and unmarshal failure (garbage response bytes)
+- New tests should include three scenario types per method: success, unsuccessful (valid response but empty/null data), and unmarshal failure (garbage response bytes). Some existing tests do not yet cover all three.
 - The `respData` field holds the raw `[]byte` JSON the mock server will return -- this controls all behavior variation between test cases
 
 ## httptest Mock Server Pattern
@@ -89,7 +89,7 @@ Key conventions:
 - Construct a `GraphqlClient` struct directly (not via `NewClient`) to inject the mock server's `httpClient`
 - The session cookie uses a dummy `Name: "test_cookie"` value
 - Mock servers always return `http.StatusOK` -- error paths are tested via response body content (null JSON fields or garbage bytes), not HTTP status codes
-- Use `t.Fatalf` for mock server write failures, not `t.Error`
+- Use `t.Fatalf` for mock server write failures, not `t.Error` -- a write failure means the client won't receive a valid response, so continuing the test is meaningless
 
 ## Assertion Conventions
 

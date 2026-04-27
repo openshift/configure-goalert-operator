@@ -11,8 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/context"
-	"golang.org/x/net/context/ctxhttp"
+	"context"
 
 	"github.com/openshift/configure-goalert-operator/config"
 )
@@ -114,7 +113,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 			return nil, err
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(ctx, method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data)) //nolint:gosec // endpoint URL from operator env var, not user input
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +123,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	req.Header.Set("Accept", "application/json")
 	req.AddCookie(c.sessionCookie)
 
-	resp, err := ctxhttp.Do(ctx, c.httpClient, req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

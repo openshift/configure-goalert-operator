@@ -32,8 +32,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"golang.org/x/net/context/ctxhttp"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -260,7 +258,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	form.Add("password", password)
 
 	// Encode form data and create HTTP request
-	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode()))
+	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode())) //nolint:gosec // endpoint URL from operator env var, not user input
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
 	}
@@ -269,7 +267,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 
 	// Send HTTP request and get response
-	authResp, err := ctxhttp.Do(ctx, http.DefaultClient, authReq)
+	authResp, err := http.DefaultClient.Do(authReq)
 	if err != nil {
 		r.reqLogger.Error(err, "Error sending HTTP request")
 	}
