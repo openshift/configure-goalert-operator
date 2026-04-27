@@ -14,9 +14,11 @@ Mutations are built as raw query strings using `fmt.Sprintf` with `strconv.Quote
 
 ### Authentication Flow
 
-Authentication is a two-step process performed every reconcile:
+Authentication is a two-step process performed every reconcile (the session cookie is not cached or reused across reconcile loops):
 1. POST form-encoded credentials to `/api/v2/identity/providers/basic` with a `Referer` header set to `{endpoint}/alerts`.
 2. Extract the `goalert_session.2` cookie from the redirect response's `Set-Cookie` header.
+
+**Known issue:** If authentication fails, the controller logs the error but continues execution rather than returning early, risking nil-pointer panics on the session cookie. See "Auth failure continuation" in AGENTS.md Known Bugs.
 
 ### GoAlert Resource Creation Order
 
@@ -33,11 +35,13 @@ Authentication is a two-step process performed every reconcile:
 
 Each step depends on IDs/keys from previous steps. If any GoAlert API call fails, return the error immediately -- do not create partial K8s resources.
 
+**Retry/idempotency caveat:** On failure, the reconciler requeues and re-enters `handleCreate` from the top. The GoAlert API calls are not idempotent -- there is no check for whether a service already exists before creating one. A failure after step 2 but before step 7 (ConfigMap creation) will produce orphaned GoAlert services on retry, since the operator has no record of the previously created IDs. There is no circuit breaker; retries continue indefinitely via the controller-runtime work queue.
+
 ### GoAlert Resource Deletion Order
 
 `handleDelete` performs cleanup in this order:
 1. Read ConfigMap to get `HIGH_SERVICE_ID` and `LOW_SERVICE_ID`
-2. Delete High service via `deleteAll` mutation (type: `service`) -- this cascades integration keys and heartbeat monitors
+2. Delete High service via `deleteAll` mutation (type: `service`) -- integration keys and heartbeat monitors are removed by GoAlert server-side cascade
 3. Delete Low service via `deleteAll` mutation
 4. Delete ConfigMap
 5. Delete Secret
