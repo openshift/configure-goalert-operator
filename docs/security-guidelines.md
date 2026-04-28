@@ -44,7 +44,7 @@ When adding new GraphQL queries:
 - `FIPS_ENABLED=true` is set in the `Makefile`, which causes the build to use the `fips_enabled` build tag.
 - `fips.go` imports `crypto/tls/fipsonly`, restricting all TLS connections to FIPS-approved cipher suites and TLS 1.2+.
 - `fips.go` is boilerplate-generated. Do not edit it directly; run `make ensure-fips` to regenerate.
-- Both `authGoalert()` and `GraphqlClient.NewRequest()` use `http.DefaultClient`, which inherits the FIPS TLS restrictions when the build tag is active.
+- Both `authGoalert()` and `GraphqlClient.NewRequest()` use `config.HTTPClient`, which inherits the FIPS TLS restrictions when the build tag is active.
 - Never configure a custom `http.Transport` with `InsecureSkipVerify: true` or non-FIPS cipher suites.
 
 ## RBAC Configuration

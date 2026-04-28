@@ -27,7 +27,6 @@ The codebase uses two distinct error-handling strategies in the main `Reconcile(
 
 Used when a failure for one item should not block processing of other items, or when the operation will be retried on the next reconcile anyway:
 - Credential loading failures (`LoadSecretData` for username/password)
-- GoAlert authentication and session cookie failures
 - Heartbeat monitor checks per ClusterDeployment
 - `handleCreate` failures for individual CDs in the creation loop
 - `handleDelete` for unmatched CDs (label removed, not CD-deletion or GI-deletion)
@@ -37,6 +36,7 @@ Used when a failure for one item should not block processing of other items, or 
 Used when the failure is unrecoverable for this reconcile pass:
 - Fetching the GoalertIntegration CR (except NotFound)
 - Listing all or matching ClusterDeployments
+- GoAlert authentication and session cookie failures
 - `handleDelete` during GI deletion or CD deletion (returns `requeueOnErr`)
 - Updating finalizers on the GI
 
