@@ -141,18 +141,16 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
 	r.reqLogger.Info("removing Goalert finalizer from ClusterDeployment", "clusterdeployment", cd.Name)
 	baseToPatch := client.MergeFrom(cd.DeepCopy())
-	deleteFinalizer := controllerutil.RemoveFinalizer(cd, goalertFinalizer)
-	if !deleteFinalizer {
-		r.reqLogger.Error(err, "failed to update cd finalizer")
-	}
-	if err := r.Patch(ctx, cd, baseToPatch); err != nil {
-		r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
+	if controllerutil.RemoveFinalizer(cd, goalertFinalizer) {
+		if patchErr := r.Patch(ctx, cd, baseToPatch); patchErr != nil {
+			r.reqLogger.Error(patchErr, "failed to remove finalizer from cd", "clusterdeployment", cd.Name)
+			return patchErr
+		}
 	}
 
 	r.reqLogger.Info("cluster in deletion, deleting heartbeat metric", "clusterdeployment", cd.Name)
-	delMetric := localmetrics.DeleteMetricCGAOHeartbeat(cd.Name)
-	if !delMetric {
-		r.reqLogger.Error(err, "failed to delete heartbeat monitor metric")
+	if !localmetrics.DeleteMetricCGAOHeartbeat(cd.Name) {
+		r.reqLogger.Info("heartbeat metric not found for deletion", "clusterdeployment", cd.Name)
 	}
 	return nil
 }

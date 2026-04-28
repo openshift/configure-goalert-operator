@@ -21,7 +21,11 @@ import (
 	"time"
 )
 
-var HTTPClient = &http.Client{Timeout: 30 * time.Second}
+var httpClient = &http.Client{Timeout: 30 * time.Second}
+
+func HTTPClient() *http.Client {
+	return httpClient
+}
 
 const (
 	OperatorName             string = "configure-goalert-operator"
