@@ -162,7 +162,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
-			r.reqLogger.Info("Checking %s heartbeat monitor", "clusterdeployment", cd.Name)
+			r.reqLogger.Info("checking heartbeat monitor", "clusterdeployment", cd.Name)
 			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, &cd)
 			if err != nil {
 				r.reqLogger.Error(err, "failed to check cluster heartbeatmonitor")
@@ -183,7 +183,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				}
 			}
 
-			if !controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
+			if controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
 				if err := r.Update(ctx, gi); err != nil {
 					return r.requeueOnErr(err)
 				}
@@ -194,7 +194,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Make sure there's a finalizer on the GoalertIntegration
 	if !controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
-		if !controllerutil.AddFinalizer(gi, goalertFinalizer) {
+		if controllerutil.AddFinalizer(gi, goalertFinalizer) {
 			if err := r.Update(ctx, gi); err != nil {
 				return r.requeueOnErr(err)
 			}
@@ -220,7 +220,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				}
 			}
 			if !cdMatches {
-				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.Name)
+				r.reqLogger.Info("cleaning up clusterdeployment without matching label", "clusterdeployment", cd.Name)
 				err := r.handleDelete(ctx, graphqlClient, gi, &cd)
 				if err != nil {
 					r.reqLogger.Error(err, "unmatched clusterdeployment, failed to remove associated goalert service", "clusterdeployment", cd.Name)

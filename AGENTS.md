@@ -120,8 +120,7 @@ All resource names, secret keys, environment variable names, and finalizer prefi
 - `config.GoalertHighIntKey`, `config.GoalertLowIntKey`, `config.GoalertHeartbeatIntKey`
 - `config.GoalertUsernameSecretKey`, `config.GoalertPasswordSecretKey`
 - `config.GoalertApiEndpointEnvVar`, `config.GoalertFinalizerPrefix`
-
-**Exception:** ConfigMap data keys (`HIGH_SERVICE_ID`, `LOW_SERVICE_ID`, `HEARTBEATMONITOR_ID`) are raw strings in `pkg/kube/configmap.go` and the controller. These are not defined as constants. Follow the existing pattern, but consider extracting them to constants if adding new keys.
+- `config.GoalertHighServiceIDKey`, `config.GoalertLowServiceIDKey`, `config.GoalertHeartbeatIDKey`
 
 ### Import Organization
 
@@ -175,14 +174,6 @@ Three schemes are registered in `main.go`: `clientgoscheme` (core K8s types), `h
 ### Metrics Server
 
 The operator uses `openshift/operator-custom-metrics` for Prometheus metrics, NOT controller-runtime's built-in metrics server. The controller-runtime `MetricsBindAddress` is set to `"0"` (disabled). Metrics are served on port `8080` at `/metrics`. New metrics must be appended to `localmetrics.MetricsList` for automatic registration.
-
-### Dead Code
-
-`event_handlers.go` defines `enqueueRequestForClusterDeploymentOwner` -- a second event handler type that maps owned resources back to ClusterDeployments, then to GoalertIntegrations. This type is **never registered** in `SetupWithManager` and is effectively dead code. Do not extend it or depend on it. If you need owner-reference-based watching, evaluate whether this dead code is the right approach or should be removed.
-
-### Known Bugs
-
-1. **Inverted finalizer logic:** The `AddFinalizer`/`RemoveFinalizer` calls on the GoalertIntegration check for `!result` before calling `Update`, which means they update when no change was made.
 
 ## CI/CD
 
