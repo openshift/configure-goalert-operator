@@ -161,7 +161,7 @@ $ oc edit clusterdeployment fake-cluster -n fake-cluster-namespace
 
 **Debugging**
 If using [VScode](https://code.visualstudio.com/), you can use the following `launch.json` file with [delve](https://github.com/go-delve/delve/tree/master/Documentation/installation) installed for debugging the operator:
-```
+```json
 {
     "version": "0.2.0",
     "configurations": [

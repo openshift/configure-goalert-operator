@@ -1,3 +1,19 @@
+/*
+Copyright 2023.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package goalertintegration
 
 //goland:noinspection SpellCheckingInspection
@@ -38,8 +54,8 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	}
 
 	if deleteSvcBool {
-		goalertHighServiceID := cmData.Data["HIGH_SERVICE_ID"]
-		goalertLowServiceID := cmData.Data["LOW_SERVICE_ID"]
+		goalertHighServiceID := cmData.Data[config.GoalertHighServiceIDKey]
+		goalertLowServiceID := cmData.Data[config.GoalertLowServiceIDKey]
 
 		if goalertHighServiceID != "" {
 			r.reqLogger.Info("Deleting service", "goalert high service id", goalertHighServiceID)
@@ -61,7 +77,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 				Timeout: 15,
 			})
 			if err != nil {
-				r.reqLogger.Error(err, "unable to delete service %s", "goalert low service id", goalertLowServiceID)
+				r.reqLogger.Error(err, "unable to delete service", "goalert low service id", goalertLowServiceID)
 				localmetrics.UpdateMetricCGAODeleteFailure(1, goalertLowServiceID)
 				return err
 			}
@@ -133,7 +149,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		r.reqLogger.Error(err, "failed to remove finalizer from cd", "clusterdeployment:", cd.Name)
 	}
 
-	r.reqLogger.Info("Cluster %s in deletion, deleting heartbeat metric", "clusterdeployment", cd.Name)
+	r.reqLogger.Info("cluster in deletion, deleting heartbeat metric", "clusterdeployment", cd.Name)
 	delMetric := localmetrics.DeleteMetricCGAOHeartbeat(cd.Name)
 	if !delMetric {
 		r.reqLogger.Error(err, "failed to delete heartbeat monitor metric")

@@ -18,8 +18,6 @@ Authentication is a two-step process performed every reconcile (the session cook
 1. POST form-encoded credentials to `/api/v2/identity/providers/basic` with a `Referer` header set to `{endpoint}/alerts`.
 2. Extract the `goalert_session.2` cookie from the redirect response's `Set-Cookie` header.
 
-**Known issue:** If authentication fails, the controller logs the error but continues execution rather than returning early, risking nil-pointer panics on the session cookie. See "Auth failure continuation" in AGENTS.md Known Bugs.
-
 ### GoAlert Resource Creation Order
 
 `handleCreate` creates GoAlert resources in this strict order:
