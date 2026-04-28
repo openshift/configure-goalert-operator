@@ -133,6 +133,10 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 		return nil, err
 	}
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("GoAlert API returned HTTP %d: %s", resp.StatusCode, string(respBytes))
+	}
+
 	return respBytes, nil
 }
 
