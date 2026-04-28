@@ -93,6 +93,34 @@ func Test_NewRequest(t *testing.T) {
 	}
 }
 
+func Test_NewRequest_Non2xxStatus(t *testing.T) {
+	client := &GraphqlClient{
+		sessionCookie: &http.Cookie{
+			Name: "test_cookie",
+		},
+		httpClient: &http.Client{},
+	}
+
+	body := struct{ Name string }{"Test body"}
+	ctx := context.Background()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err := w.Write([]byte("server error"))
+		if err != nil {
+			t.Log(err)
+		}
+	}))
+	defer ts.Close()
+
+	t.Setenv(config.GoalertApiEndpointEnvVar, ts.URL)
+
+	respBytes, err := client.NewRequest(ctx, "POST", body)
+	assert.Nil(t, respBytes)
+	assert.ErrorContains(t, err, "500")
+	assert.ErrorContains(t, err, "server error")
+}
+
 func Test_CreateService(t *testing.T) {
 
 	tests := []struct {

@@ -125,6 +125,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to load Goalert username key from Secret listed in GoalertIntegration CR")
+		return r.requeueOnErr(err)
 	}
 	goalertPassword, err := utils.LoadSecretData(
 		ctx,
@@ -135,6 +136,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to load Goalert password key from Secret listed in GoalertIntegration CR")
+		return r.requeueOnErr(err)
 	}
 
 	// Log in to Goalert
@@ -269,7 +271,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 
 	// Send HTTP request and get response
-	authResp, err := config.HTTPClient.Do(authReq)
+	authResp, err := config.HTTPClient().Do(authReq) //nolint:gosec // endpoint URL from operator env var, not user input
 	if err != nil {
 		return nil, fmt.Errorf("error sending HTTP request: %w", err)
 	}
