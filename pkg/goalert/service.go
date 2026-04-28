@@ -2,6 +2,7 @@ package goalert
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,8 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"context"
 
 	"github.com/openshift/configure-goalert-operator/config"
 )
@@ -35,7 +34,7 @@ type GraphqlClient struct {
 // Wrapper to create new client for GraphQL api calls
 func NewClient(sessionCookie *http.Cookie) Client {
 	return &GraphqlClient{
-		httpClient:    http.DefaultClient,
+		httpClient:    config.HTTPClient,
 		sessionCookie: sessionCookie,
 	}
 }
