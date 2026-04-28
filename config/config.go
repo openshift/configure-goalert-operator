@@ -1,5 +1,12 @@
 package config
 
+import (
+	"net/http"
+	"time"
+)
+
+var HTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 const (
 	OperatorName             string = "configure-goalert-operator"
 	OperatorNamespace        string = "configure-goalert-operator"

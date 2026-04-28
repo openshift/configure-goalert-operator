@@ -143,4 +143,4 @@ New tests should use `TestMethodName` (no underscore) to match standard Go conve
 
 ## Context Usage
 
-The `pkg/goalert/` package and its tests use `golang.org/x/net/context`. New test files for the `pkg/goalert/` package must use the same import for consistency. Controller code uses stdlib `context`, so controller tests should also use stdlib `context`.
+All packages use stdlib `context`. Tests should use stdlib `context` as well.
