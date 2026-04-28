@@ -61,7 +61,6 @@ aliases:
     - casey-williams-rh
     - boranx
   srep-functional-team-thor:
-    - a7vicky
     - diakovnec
     - MitaliBhalla
     - feichashao
@@ -92,5 +91,4 @@ aliases:
     - maorfr
     - rogbas
   srep-architects:
-    - jharrington22
     - cblecker
