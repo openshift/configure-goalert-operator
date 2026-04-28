@@ -67,6 +67,7 @@ func (e *enqueueRequestForClusterDeployment) toRequests(obj client.Object) []rec
 	reqs := []reconcile.Request{}
 	giList := &goalertv1alpha1.GoalertIntegrationList{}
 	if err := e.Client.List(context.TODO(), giList, &client.ListOptions{}); err != nil {
+		log.Error(err, "failed to list GoalertIntegration resources in event handler")
 		return reqs
 	}
 
@@ -74,6 +75,7 @@ func (e *enqueueRequestForClusterDeployment) toRequests(obj client.Object) []rec
 		gai := gai // gosec G601 compliance - avoid memory aliasing in for-loops
 		selector, err := metav1.LabelSelectorAsSelector(&gai.Spec.ClusterDeploymentSelector)
 		if err != nil {
+			log.Error(err, "failed to parse label selector", "goalertintegration", gai.Name)
 			continue
 		}
 		if selector.Matches(labels.Set(obj.GetLabels())) {

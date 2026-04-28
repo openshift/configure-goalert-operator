@@ -50,7 +50,7 @@ type GraphqlClient struct {
 // Wrapper to create new client for GraphQL api calls
 func NewClient(sessionCookie *http.Cookie) Client {
 	return &GraphqlClient{
-		httpClient:    config.HTTPClient,
+		httpClient:    config.HTTPClient(),
 		sessionCookie: sessionCookie,
 	}
 }
@@ -138,7 +138,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	req.Header.Set("Accept", "application/json")
 	req.AddCookie(c.sessionCookie)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // endpoint URL from operator env var, not user input
 	if err != nil {
 		return nil, err
 	}
