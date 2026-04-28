@@ -83,7 +83,7 @@ When adding `//nolint` directives, target the linters from the boilerplate confi
 
 ### Key Dependencies
 
-- Go `1.23.11` (from `go.mod`)
+- Go `1.24.0` (from `go.mod`)
 - `sigs.k8s.io/controller-runtime` v0.13.0
 - `github.com/openshift/hive/apis` -- ClusterDeployment, SyncSet types
 - `github.com/openshift/operator-custom-metrics` -- Custom metrics server (replaces controller-runtime metrics)
@@ -150,7 +150,7 @@ All secondary Kubernetes resources (ConfigMap, Secret, SyncSet) created by the o
 
 - Reconciler methods receive a `ctx context.Context` parameter from the framework. Always pass this `ctx` to K8s API calls (`r.Get`, `r.Create`, etc.) and GoAlert client methods.
 - Event handlers (`event_handlers.go`) do not receive a context parameter (the `handler.EventHandler` interface does not provide one). They use `context.TODO()` for K8s API calls. This is the expected pattern for this codebase.
-- `pkg/goalert/` uses `golang.org/x/net/context`, not stdlib `context`. Maintain this import in that package for consistency. Controller code and new packages should use stdlib `context`.
+- All packages, including `pkg/goalert/`, use stdlib `context`.
 
 ### Error Import Inconsistency
 
@@ -182,9 +182,7 @@ The operator uses `openshift/operator-custom-metrics` for Prometheus metrics, NO
 
 ### Known Bugs
 
-1. **GI deletion bulk cleanup bug:** In `goalertintegration_controller.go`, the GI deletion loop iterates over `matchingClusterDeployments.Items` but indexes into `allClusterDeployments.Items[i]`. This can process the wrong ClusterDeployment. See [Integration Guidelines](docs/integration-guidelines.md#three-deletion-triggers) for details.
-2. **Auth failure continuation:** The controller logs auth/cookie errors but continues execution rather than returning early, risking nil-pointer panics on the session cookie. New code that depends on authentication should return early on auth failure.
-3. **Inverted finalizer logic:** The `AddFinalizer`/`RemoveFinalizer` calls on the GoalertIntegration check for `!result` before calling `Update`, which means they update when no change was made.
+1. **Inverted finalizer logic:** The `AddFinalizer`/`RemoveFinalizer` calls on the GoalertIntegration check for `!result` before calling `Update`, which means they update when no change was made.
 
 ## CI/CD
 
