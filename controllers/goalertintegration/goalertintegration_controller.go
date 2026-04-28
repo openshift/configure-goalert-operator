@@ -141,6 +141,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	authenticateGoalert, err := r.authGoalert(ctx, goalertUsername, goalertPassword)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to auth to Goalert")
+		return r.requeueOnErr(err)
 	}
 	defer func() {
 		if err := authenticateGoalert.Body.Close(); err != nil {
@@ -152,6 +153,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	sessionCookie, err := r.fetchSessionCookie(authenticateGoalert)
 	if err != nil {
 		r.reqLogger.Error(err, "Error fetching goalert_session.2 cookie")
+		return r.requeueOnErr(err)
 	}
 	graphqlClient := r.gclient(sessionCookie)
 	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
@@ -172,7 +174,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
 			for i := range matchingClusterDeployments.Items {
-				clusterDeployment := allClusterDeployments.Items[i]
+				clusterDeployment := matchingClusterDeployments.Items[i]
 				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
 					if err := r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
 						r.reqLogger.Error(err, "failing to bulk remove cluster services from GoAlert")
@@ -260,16 +262,16 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	// Encode form data and create HTTP request
 	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode())) //nolint:gosec // endpoint URL from operator env var, not user input
 	if err != nil {
-		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
+		return nil, fmt.Errorf("failed to create HTTP request to auth to Goalert: %w", err)
 	}
 
 	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 
 	// Send HTTP request and get response
-	authResp, err := http.DefaultClient.Do(authReq)
+	authResp, err := config.HTTPClient.Do(authReq)
 	if err != nil {
-		r.reqLogger.Error(err, "Error sending HTTP request")
+		return nil, fmt.Errorf("error sending HTTP request: %w", err)
 	}
 	defer func() {
 		if err := authResp.Body.Close(); err != nil {

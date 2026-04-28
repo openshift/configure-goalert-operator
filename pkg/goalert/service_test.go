@@ -1,14 +1,13 @@
 package goalert
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"context"
 
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/stretchr/testify/assert"
