@@ -173,8 +173,8 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
-			for i := range matchingClusterDeployments.Items {
-				clusterDeployment := matchingClusterDeployments.Items[i]
+			for i := range allClusterDeployments.Items {
+				clusterDeployment := allClusterDeployments.Items[i]
 				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
 					if err := r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
 						r.reqLogger.Error(err, "failing to bulk remove cluster services from GoAlert")
