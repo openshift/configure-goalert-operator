@@ -23,25 +23,40 @@ import (
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
+// HTTPClient returns the shared HTTP client used for GoAlert API requests.
 func HTTPClient() *http.Client {
 	return httpClient
 }
 
 const (
-	OperatorName             string = "configure-goalert-operator"
-	OperatorNamespace        string = "configure-goalert-operator"
+	// OperatorName is the name of this operator, used for leader election and metrics.
+	OperatorName string = "configure-goalert-operator"
+	// OperatorNamespace is the namespace where the operator is deployed.
+	OperatorNamespace string = "configure-goalert-operator"
+	// GoalertUsernameSecretKey is the Secret data key for the GoAlert username.
 	GoalertUsernameSecretKey string = "USERNAME"
+	// GoalertPasswordSecretKey is the Secret data key for the GoAlert password.
 	GoalertPasswordSecretKey string = "PASSWORD"
-	GoalertHighIntKey        string = "GOALERT_URL_HIGH"
-	GoalertLowIntKey         string = "GOALERT_URL_LOW"
-	GoalertHeartbeatIntKey   string = "GOALERT_HEARTBEAT"
+	// GoalertHighIntKey is the Secret data key for the high-severity integration URL.
+	GoalertHighIntKey string = "GOALERT_URL_HIGH"
+	// GoalertLowIntKey is the Secret data key for the low-severity integration URL.
+	GoalertLowIntKey string = "GOALERT_URL_LOW"
+	// GoalertHeartbeatIntKey is the Secret data key for the heartbeat monitor URL.
+	GoalertHeartbeatIntKey string = "GOALERT_HEARTBEAT"
+	// GoalertApiEndpointEnvVar is the environment variable holding the GoAlert API base URL.
 	GoalertApiEndpointEnvVar string = "GOALERT_ENDPOINT_URL"
-	GoalertFinalizerPrefix   string = "goalert.managed.openshift.io/goalert-"
-	ConfigMapSuffix          string = "-goalert-config"
-	SecretName               string = "goalert-secret"
-	GoalertHighServiceIDKey  string = "HIGH_SERVICE_ID"
-	GoalertLowServiceIDKey   string = "LOW_SERVICE_ID"
-	GoalertHeartbeatIDKey    string = "HEARTBEATMONITOR_ID"
+	// GoalertFinalizerPrefix is the prefix for finalizers added to ClusterDeployments.
+	GoalertFinalizerPrefix string = "goalert.managed.openshift.io/goalert-"
+	// ConfigMapSuffix is the suffix appended to ConfigMap names created per ClusterDeployment.
+	ConfigMapSuffix string = "-goalert-config"
+	// SecretName is the name of the Secret and SyncSet created per ClusterDeployment namespace.
+	SecretName string = "goalert-secret"
+	// GoalertHighServiceIDKey is the ConfigMap data key for the high-severity service ID.
+	GoalertHighServiceIDKey string = "HIGH_SERVICE_ID"
+	// GoalertLowServiceIDKey is the ConfigMap data key for the low-severity service ID.
+	GoalertLowServiceIDKey string = "LOW_SERVICE_ID"
+	// GoalertHeartbeatIDKey is the ConfigMap data key for the heartbeat monitor ID.
+	GoalertHeartbeatIDKey string = "HEARTBEATMONITOR_ID"
 )
 
 // Name is used to generate the name of secondary resources (SyncSets,

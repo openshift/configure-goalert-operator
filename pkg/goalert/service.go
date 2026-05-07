@@ -31,13 +31,19 @@ import (
 	"github.com/openshift/configure-goalert-operator/config"
 )
 
-// Client is a wrapper interface for the GraphqlClient to allow for easier testing
+// Client is a wrapper interface for the GraphqlClient to allow for easier testing.
 type Client interface {
+	// CreateService creates a GoAlert service and returns its ID.
 	CreateService(ctx context.Context, data *Data) (string, error)
+	// CreateIntegrationKey creates an integration key for a GoAlert service and returns the key URL.
 	CreateIntegrationKey(ctx context.Context, data *Data) (string, error)
+	// CreateHeartbeatMonitor creates a heartbeat monitor for a GoAlert service and returns the key URL and monitor ID.
 	CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, string, error)
+	// DeleteService deletes a GoAlert service by ID.
 	DeleteService(ctx context.Context, data *Data) error
+	// NewRequest sends an HTTP request to the GoAlert GraphQL API and returns the response body.
 	NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error)
+	// IsHeartbeatMonitorInactive checks whether a heartbeat monitor is in the inactive state.
 	IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error)
 }
 
@@ -107,6 +113,7 @@ type RespDelete struct {
 	} `json:"data"`
 }
 
+// RespHeartbeatState describes the heartbeat monitor state returned from a heartbeatMonitor query.
 type RespHeartbeatState struct {
 	Data struct {
 		Heatbeatmonitor struct {
@@ -248,6 +255,7 @@ func (c *GraphqlClient) DeleteService(ctx context.Context, data *Data) error {
 	return nil
 }
 
+// IsHeartbeatMonitorInactive queries GoAlert to determine if the specified heartbeat monitor is inactive.
 func (c *GraphqlClient) IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error) {
 	query := fmt.Sprintf(`query {
 		heartbeatMonitor(

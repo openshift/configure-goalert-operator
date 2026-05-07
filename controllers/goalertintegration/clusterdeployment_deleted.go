@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// handleDelete removes GoAlert services, the ConfigMap, Secret, SyncSet, and finalizer for a ClusterDeployment.
 func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	if cd == nil {
