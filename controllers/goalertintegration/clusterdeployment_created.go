@@ -164,7 +164,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		sc := &corev1.Secret{}
 		err := r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: cd.Namespace}, sc)
 		if err != nil {
-			return nil
+			return err
 		}
 		if string(sc.Data[config.GoalertHighIntKey]) != highIntKey ||
 			string(sc.Data[config.GoalertLowIntKey]) != lowIntKey ||
