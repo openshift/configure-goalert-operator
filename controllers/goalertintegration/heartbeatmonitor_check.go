@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// checkHeartbeatMonitor queries GoAlert for the heartbeat monitor state and updates the inactive metric accordingly.
 func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	cmData := &v1.ConfigMap{Data: map[string]string{}}

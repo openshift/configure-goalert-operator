@@ -139,6 +139,12 @@ All non-generated Go files must include the Apache 2.0 license header from `hack
 
 All secondary Kubernetes resources (ConfigMap, Secret, SyncSet) created by the operator must have `controllerutil.SetControllerReference(cd, resource, r.Scheme)` set to the ClusterDeployment, not the GoalertIntegration. This enables garbage collection when the CD is deleted.
 
+### Comment Conventions
+
+All exported functions, methods, types, constants, and variables must have Go doc comments (`// Name does X`). This is standard Go convention and is enforced by CodeRabbit's docstring coverage check. Unexported symbols should also have doc comments when their purpose is not obvious from the name and signature.
+
+Inline implementation comments (comments inside function bodies) should remain minimal -- only add them when the WHY is non-obvious.
+
 ### Logging Conventions
 
 - Use `r.reqLogger` (scoped per reconcile) in controller methods. Use the package-level `log` variable only in event handlers where no reconciler receiver is available.

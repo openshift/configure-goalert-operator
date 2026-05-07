@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// Scaffold of func to handle creation of new clusters OSD-16306
+// handleCreate provisions GoAlert services, integration keys, and a heartbeat monitor for a ClusterDeployment, then creates the corresponding ConfigMap, Secret, and SyncSet.
 func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	var (
@@ -204,6 +204,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	return nil
 }
 
+// getClusterID derives a cluster identifier from the ClusterDeployment namespace for use in GoAlert service names.
 func getClusterID(cd *hivev1.ClusterDeployment) string {
 	uid := strings.Split(cd.Namespace, "-")
 	return "fedramp-" + uid[len(uid)-1]

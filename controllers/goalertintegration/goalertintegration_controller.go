@@ -250,6 +250,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
+// authGoalert authenticates to the GoAlert API using HTTP basic auth and returns the redirect response containing the session cookie.
 func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username string, password string) (*http.Response, error) {
 
 	// Create authentication endpoint
@@ -284,8 +285,10 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	return authResp.Request.Response, nil
 }
 
+// ErrSessionCookieMissing is returned when the GoAlert authentication response does not contain a session cookie.
 var ErrSessionCookieMissing = fmt.Errorf("session cookie is missing")
 
+// fetchSessionCookie extracts the goalert_session.2 cookie from the authentication response.
 func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Response) (*http.Cookie, error) {
 
 	var strCookie string
@@ -308,6 +311,7 @@ func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Respons
 	return httpCookie, nil
 }
 
+// substringAfter returns the portion of s after the first occurrence of sep.
 func substringAfter(s string, sep string) string {
 	substrings := strings.SplitAfter(s, sep)
 	if len(substrings) > 1 {
@@ -317,12 +321,14 @@ func substringAfter(s string, sep string) string {
 	}
 }
 
+// getAllClusterDeployments lists every ClusterDeployment across all namespaces.
 func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
 	return allClusterDeployments, err
 }
 
+// getMatchingClusterDeployments lists ClusterDeployments whose labels match the GoalertIntegration's selector.
 func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&gi.Spec.ClusterDeploymentSelector)
 	if err != nil {
@@ -335,6 +341,7 @@ func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context
 	return matchingClusterDeployments, err
 }
 
+// cgaoResourcesExist checks whether the ConfigMap, Secret, and SyncSet for a ClusterDeployment already exist.
 func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
 	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
 
@@ -365,10 +372,12 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	return cmExists, secretExist, syncSetExist, nil
 }
 
+// doNotRequeue returns a reconcile result that does not requeue.
 func (r *GoalertIntegrationReconciler) doNotRequeue() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
+// requeueOnErr returns a reconcile result that requeues with the given error.
 func (r *GoalertIntegrationReconciler) requeueOnErr(err error) (reconcile.Result, error) {
 	return reconcile.Result{}, err
 }
