@@ -39,22 +39,26 @@ type enqueueRequestForClusterDeployment struct {
 	Client client.Client
 }
 
+// Create handles ClusterDeployment create events by enqueuing matching GoalertIntegration reconcile requests.
 func (e *enqueueRequestForClusterDeployment) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.Object, reqs)
 }
 
+// Update handles ClusterDeployment update events by enqueuing matching GoalertIntegration reconcile requests for both old and new objects.
 func (e *enqueueRequestForClusterDeployment) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.ObjectOld, reqs)
 	e.mapAndEnqueue(q, evt.ObjectNew, reqs)
 }
 
+// Delete handles ClusterDeployment delete events by enqueuing matching GoalertIntegration reconcile requests.
 func (e *enqueueRequestForClusterDeployment) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.Object, reqs)
 }
 
+// Generic handles generic ClusterDeployment events by enqueuing matching GoalertIntegration reconcile requests.
 func (e *enqueueRequestForClusterDeployment) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]struct{}{}
 	e.mapAndEnqueue(q, evt.Object, reqs)
@@ -90,6 +94,7 @@ func (e *enqueueRequestForClusterDeployment) toRequests(obj client.Object) []rec
 	return reqs
 }
 
+// mapAndEnqueue maps an object to reconcile requests and adds them to the work queue, de-duplicating as needed.
 func (e *enqueueRequestForClusterDeployment) mapAndEnqueue(q workqueue.RateLimitingInterface, obj client.Object, reqs map[reconcile.Request]struct{}) {
 	for _, req := range e.toRequests(obj) {
 		_, ok := reqs[req]

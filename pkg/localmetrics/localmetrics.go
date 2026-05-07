@@ -21,28 +21,33 @@ import (
 )
 
 var (
+	// ReconcileDuration tracks the duration of reconcile loops, broken down by controller.
 	ReconcileDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:        "cgao_reconcile_duration_seconds",
 		Help:        "Distribution of the number of seconds a Reconcile takes, broken down by controller",
 		ConstLabels: prometheus.Labels{"name": "configure-goalert-operator"},
 		Buckets:     []float64{0.001, 0.01, 0.1, 1, 5, 10, 20},
 	}, []string{"controller"})
+	// MetricCGAOCreateFailure tracks failures when creating GoAlert services.
 	MetricCGAOCreateFailure = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name:        "cgao_create_failure",
 		Help:        "Metric for the number of failures creating Goalert service.",
 		ConstLabels: prometheus.Labels{"name": "configure-goalert-operator"},
 	}, []string{"service_name"})
 
+	// MetricCGAODeleteFailure tracks failures when deleting GoAlert services.
 	MetricCGAODeleteFailure = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name:        "cgao_delete_failure",
 		Help:        "Metric for the number of failures deleting a Goalert service.",
 		ConstLabels: prometheus.Labels{"name": "configure-goalert-operator"},
 	}, []string{"service_name"})
+	// MetricCGAOHeartbeatInactive tracks GoAlert heartbeat monitors that are in an inactive state.
 	MetricCGAOHeartbeatInactive = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name:        "cgao_heartbeat_inactive",
 		Help:        "Metric for inactive heartbeatmonitors in Goalert",
 		ConstLabels: prometheus.Labels{"name": "configure-goalert-operator"},
 	}, []string{"service_name"})
+	// MetricsList is the list of all Prometheus collectors registered with the custom metrics server.
 	MetricsList = []prometheus.Collector{
 		ReconcileDuration,
 		MetricCGAOCreateFailure,
