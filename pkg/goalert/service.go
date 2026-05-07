@@ -135,7 +135,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 			return nil, err
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data)) //nolint:gosec // endpoint URL from operator env var, not user input
+	req, err := http.NewRequestWithContext(ctx, method, goalertApiEndpoint+"/api/graphql", bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	req.Header.Set("Accept", "application/json")
 	req.AddCookie(c.sessionCookie)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // endpoint URL from operator env var, not user input
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

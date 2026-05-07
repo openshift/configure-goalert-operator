@@ -263,7 +263,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	form.Add("password", password)
 
 	// Encode form data and create HTTP request
-	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode())) //nolint:gosec // endpoint URL from operator env var, not user input
+	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request to auth to Goalert: %w", err)
 	}
@@ -272,7 +272,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 
 	// Send HTTP request and get response
-	authResp, err := config.HTTPClient().Do(authReq) //nolint:gosec // endpoint URL from operator env var, not user input
+	authResp, err := config.HTTPClient().Do(authReq)
 	if err != nil {
 		return nil, fmt.Errorf("error sending HTTP request: %w", err)
 	}
@@ -363,7 +363,7 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	secretExist = !errors.IsNotFound(err)
 
 	syncSetExist := false
-	err = r.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
+	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
