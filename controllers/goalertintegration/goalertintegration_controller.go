@@ -354,7 +354,7 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	secretExist = !errors.IsNotFound(err)
 
 	syncSetExist := false
-	err = r.Get(context.TODO(), types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
+	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
