@@ -54,14 +54,11 @@ make boilerplate-update        # Update boilerplate to latest upstream
 
 Use `container-*` variants to match CI behavior exactly. These run inside the boilerplate container image.
 
-### Lint Configuration (Two Configs)
+### Lint Configuration
 
-Two golangci-lint configs exist. Know which one applies:
+The golangci-lint config lives at **`boilerplate/openshift/golang-osd-operator/golangci.yml`** and is used by `make lint` / `make go-check`. It enables: `errcheck`, `gosec`, `govet`, `ineffassign`, `misspell`, `staticcheck`, `unused`.
 
-- **`boilerplate/openshift/golang-osd-operator/golangci.yml`** -- Used by `make lint` / `make go-check`. This is the CI-authoritative config. It enables a minimal linter set: `errcheck`, `gosec`, `govet`, `ineffassign`, `misspell`, `staticcheck`, `unused`.
-- **`.golangci.yaml`** (project root) -- A broader config enabling additional linters (`gocyclo`, `dupl`, `revive`, `bodyclose`, `gocritic`, etc.). This file is **not** used by `make lint` because the boilerplate Make target passes `-c` to specify its own config. It is only picked up if you run `golangci-lint run` directly without `-c`.
-
-When adding `//nolint` directives, target the linters from the boilerplate config since those are the ones CI enforces.
+When adding `//nolint` directives, target only these linters.
 
 ## Architecture
 

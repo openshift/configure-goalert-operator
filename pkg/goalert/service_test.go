@@ -168,7 +168,6 @@ func Test_CreateService(t *testing.T) {
 		},
 	}
 
-	//nolint:dupl // These for loops test different methods of mockClient
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -246,7 +245,6 @@ func Test_CreateIntegrationKey(t *testing.T) {
 		},
 	}
 
-	//nolint:dupl // These for loops test different methods of mockClient
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()

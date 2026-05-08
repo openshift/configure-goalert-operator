@@ -79,7 +79,7 @@ The SyncSet has the same name as the Secret (`"goalert-secret"`), lives in the C
 
 ## Finalizer Contract
 
-Finalizers follow the pattern: `config.GoalertFinalizerPrefix + gi.Name`, producing `"goalert.managed.openshift.io/goalert-{giName}"`. Finalizers are placed on ClusterDeployments (not on the GI itself, despite the inverted logic bug in the GI finalizer add/remove paths). Each GI creates a distinct finalizer per CD, allowing multiple GIs to coexist on the same CD.
+Finalizers follow the pattern: `config.GoalertFinalizerPrefix + gi.Name`, producing `"goalert.managed.openshift.io/goalert-{giName}"`. Finalizers are placed on both the GoalertIntegration and on each matching ClusterDeployment. Each GI creates a distinct finalizer per CD, allowing multiple GIs to coexist on the same CD.
 
 ## GraphQL API Contract
 

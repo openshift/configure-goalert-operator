@@ -88,7 +88,7 @@ Key conventions:
 - Always use `t.Setenv` (not `os.Setenv`) so the env var is automatically restored after the test
 - Construct a `GraphqlClient` struct directly (not via `NewClient`) to inject the mock server's `httpClient`
 - The session cookie uses a dummy `Name: "test_cookie"` value
-- Mock servers always return `http.StatusOK` -- error paths are tested via response body content (null JSON fields or garbage bytes), not HTTP status codes
+- Mock servers return `http.StatusOK` for normal-flow tests -- error paths should also be tested using non-2xx status codes (to exercise the client's HTTP error handling) and response body corruption (null JSON fields, garbage bytes)
 - Use `t.Fatalf` for mock server write failures, not `t.Error` -- a write failure means the client won't receive a valid response, so continuing the test is meaningless
 
 ## Assertion Conventions
@@ -131,7 +131,7 @@ The `KUBEBUILDER_ASSETS` environment variable is set automatically by the `go-te
 
 ## Nolint Directives
 
-The test file uses `//nolint:dupl` on the `for` loop in `Test_CreateService` and `Test_CreateIntegrationKey` because the mock server setup is structurally identical across these tests. Preserve this directive when the duplication is intentional across different method tests.
+`//nolint` directives should only target linters enabled in the CI-authoritative config (`boilerplate/openshift/golang-osd-operator/golangci.yml`): `errcheck`, `gosec`, `govet`, `ineffassign`, `misspell`, `staticcheck`, `unused`. Directives for linters not in that list (e.g., `//nolint:dupl`) are unnecessary and should not be added.
 
 ## Test Naming Convention
 
