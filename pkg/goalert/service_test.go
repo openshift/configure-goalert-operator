@@ -1,14 +1,29 @@
+/*
+Copyright 2023.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package goalert
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"golang.org/x/net/context"
 
 	"github.com/openshift/configure-goalert-operator/config"
 	"github.com/stretchr/testify/assert"
@@ -78,6 +93,34 @@ func Test_NewRequest(t *testing.T) {
 	}
 }
 
+func Test_NewRequest_Non2xxStatus(t *testing.T) {
+	client := &GraphqlClient{
+		sessionCookie: &http.Cookie{
+			Name: "test_cookie",
+		},
+		httpClient: &http.Client{},
+	}
+
+	body := struct{ Name string }{"Test body"}
+	ctx := context.Background()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err := w.Write([]byte("server error"))
+		if err != nil {
+			t.Log(err)
+		}
+	}))
+	defer ts.Close()
+
+	t.Setenv(config.GoalertApiEndpointEnvVar, ts.URL)
+
+	respBytes, err := client.NewRequest(ctx, "POST", body)
+	assert.Nil(t, respBytes)
+	assert.ErrorContains(t, err, "500")
+	assert.ErrorContains(t, err, "server error")
+}
+
 func Test_CreateService(t *testing.T) {
 
 	tests := []struct {
@@ -125,7 +168,6 @@ func Test_CreateService(t *testing.T) {
 		},
 	}
 
-	//nolint:dupl // These for loops test different methods of mockClient
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -203,7 +245,6 @@ func Test_CreateIntegrationKey(t *testing.T) {
 		},
 	}
 
-	//nolint:dupl // These for loops test different methods of mockClient
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()

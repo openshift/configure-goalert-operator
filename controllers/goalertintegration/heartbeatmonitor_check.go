@@ -1,3 +1,19 @@
+/*
+Copyright 2023.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package goalertintegration
 
 import (
@@ -15,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// checkHeartbeatMonitor queries GoAlert for the heartbeat monitor state and updates the inactive metric accordingly.
 func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
 	cmData := &v1.ConfigMap{Data: map[string]string{}}
@@ -27,7 +44,7 @@ func (r *GoalertIntegrationReconciler) checkHeartbeatMonitor(ctx context.Context
 		}
 	}
 
-	heartbeatmonitorId := cmData.Data["HEARTBEATMONITOR_ID"]
+	heartbeatmonitorId := cmData.Data[config.GoalertHeartbeatIDKey]
 
 	isHeartbeatmonitorInactive, err := gclient.IsHeartbeatMonitorInactive(ctx, &goalert.Data{Id: heartbeatmonitorId})
 	if err != nil {
