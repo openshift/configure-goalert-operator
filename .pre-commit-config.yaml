@@ -65,7 +65,7 @@ repos:
   #    High-confidence findings block; configure .gitleaks.toml for allowlist.
   # ---------------------------------------------------------------------------
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.0                         # pinned immutable tag (golden rule 15)
+    rev: v8.30.1                         # pinned immutable tag (golden rule 15)
     hooks:
       - id: gitleaks
 
