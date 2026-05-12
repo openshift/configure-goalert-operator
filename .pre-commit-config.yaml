@@ -48,7 +48,7 @@ repos:
   #                            mirrors ci/prow/lint: olm-deploy-yaml-validate
   # ---------------------------------------------------------------------------
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0                          # pinned immutable tag
+    rev: v6.0.0                          # pinned immutable tag
     hooks:
       - id: check-merge-conflict
       - id: trailing-whitespace
