@@ -1,7 +1,24 @@
+/*
+Copyright 2023.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package goalert
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,19 +28,22 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/context"
-	"golang.org/x/net/context/ctxhttp"
-
 	"github.com/openshift/configure-goalert-operator/config"
 )
 
-// Client is a wrapper interface for the GraphqlClient to allow for easier testing
+// Client is a wrapper interface for the GraphqlClient to allow for easier testing.
 type Client interface {
+	// CreateService creates a GoAlert service and returns its ID.
 	CreateService(ctx context.Context, data *Data) (string, error)
+	// CreateIntegrationKey creates an integration key for a GoAlert service and returns the key URL.
 	CreateIntegrationKey(ctx context.Context, data *Data) (string, error)
+	// CreateHeartbeatMonitor creates a heartbeat monitor for a GoAlert service and returns the key URL and monitor ID.
 	CreateHeartbeatMonitor(ctx context.Context, data *Data) (string, string, error)
+	// DeleteService deletes a GoAlert service by ID.
 	DeleteService(ctx context.Context, data *Data) error
+	// NewRequest sends an HTTP request to the GoAlert GraphQL API and returns the response body.
 	NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error)
+	// IsHeartbeatMonitorInactive checks whether a heartbeat monitor is in the inactive state.
 	IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error)
 }
 
@@ -36,7 +56,7 @@ type GraphqlClient struct {
 // Wrapper to create new client for GraphQL api calls
 func NewClient(sessionCookie *http.Cookie) Client {
 	return &GraphqlClient{
-		httpClient:    http.DefaultClient,
+		httpClient:    config.HTTPClient(),
 		sessionCookie: sessionCookie,
 	}
 }
@@ -93,6 +113,7 @@ type RespDelete struct {
 	} `json:"data"`
 }
 
+// RespHeartbeatState describes the heartbeat monitor state returned from a heartbeatMonitor query.
 type RespHeartbeatState struct {
 	Data struct {
 		Heatbeatmonitor struct {
@@ -124,7 +145,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	req.Header.Set("Accept", "application/json")
 	req.AddCookie(c.sessionCookie)
 
-	resp, err := ctxhttp.Do(ctx, c.httpClient, req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +154,10 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("GoAlert API returned HTTP %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	return respBytes, nil
@@ -230,6 +255,7 @@ func (c *GraphqlClient) DeleteService(ctx context.Context, data *Data) error {
 	return nil
 }
 
+// IsHeartbeatMonitorInactive queries GoAlert to determine if the specified heartbeat monitor is inactive.
 func (c *GraphqlClient) IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error) {
 	query := fmt.Sprintf(`query {
 		heartbeatMonitor(

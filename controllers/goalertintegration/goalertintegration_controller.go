@@ -32,8 +32,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"golang.org/x/net/context/ctxhttp"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -127,6 +125,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to load Goalert username key from Secret listed in GoalertIntegration CR")
+		return r.requeueOnErr(err)
 	}
 	goalertPassword, err := utils.LoadSecretData(
 		ctx,
@@ -137,12 +136,14 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to load Goalert password key from Secret listed in GoalertIntegration CR")
+		return r.requeueOnErr(err)
 	}
 
 	// Log in to Goalert
 	authenticateGoalert, err := r.authGoalert(ctx, goalertUsername, goalertPassword)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to auth to Goalert")
+		return r.requeueOnErr(err)
 	}
 	defer func() {
 		if err := authenticateGoalert.Body.Close(); err != nil {
@@ -154,6 +155,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	sessionCookie, err := r.fetchSessionCookie(authenticateGoalert)
 	if err != nil {
 		r.reqLogger.Error(err, "Error fetching goalert_session.2 cookie")
+		return r.requeueOnErr(err)
 	}
 	graphqlClient := r.gclient(sessionCookie)
 	goalertFinalizer := config.GoalertFinalizerPrefix + gi.Name
@@ -162,7 +164,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
-			r.reqLogger.Info("Checking %s heartbeat monitor", "clusterdeployment", cd.Name)
+			r.reqLogger.Info("checking heartbeat monitor", "clusterdeployment", cd.Name)
 			err := r.checkHeartbeatMonitor(ctx, graphqlClient, gi, &cd)
 			if err != nil {
 				r.reqLogger.Error(err, "failed to check cluster heartbeatmonitor")
@@ -173,7 +175,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// If the GI is being deleted, clean up all ClusterDeployments with matching finalizers
 	if gi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
-			for i := range matchingClusterDeployments.Items {
+			for i := range allClusterDeployments.Items {
 				clusterDeployment := allClusterDeployments.Items[i]
 				if controllerutil.ContainsFinalizer(&clusterDeployment, goalertFinalizer) {
 					if err := r.handleDelete(ctx, graphqlClient, gi, &clusterDeployment); err != nil {
@@ -183,7 +185,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				}
 			}
 
-			if !controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
+			if controllerutil.RemoveFinalizer(gi, goalertFinalizer) {
 				if err := r.Update(ctx, gi); err != nil {
 					return r.requeueOnErr(err)
 				}
@@ -194,7 +196,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Make sure there's a finalizer on the GoalertIntegration
 	if !controllerutil.ContainsFinalizer(gi, goalertFinalizer) {
-		if !controllerutil.AddFinalizer(gi, goalertFinalizer) {
+		if controllerutil.AddFinalizer(gi, goalertFinalizer) {
 			if err := r.Update(ctx, gi); err != nil {
 				return r.requeueOnErr(err)
 			}
@@ -220,7 +222,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 				}
 			}
 			if !cdMatches {
-				r.reqLogger.Info("cleaning up %s as it does not have a matching label", "clusterdeployment", cd.Name)
+				r.reqLogger.Info("cleaning up clusterdeployment without matching label", "clusterdeployment", cd.Name)
 				err := r.handleDelete(ctx, graphqlClient, gi, &cd)
 				if err != nil {
 					r.reqLogger.Error(err, "unmatched clusterdeployment, failed to remove associated goalert service", "clusterdeployment", cd.Name)
@@ -248,6 +250,7 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
+// authGoalert authenticates to the GoAlert API using HTTP basic auth and returns the redirect response containing the session cookie.
 func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username string, password string) (*http.Response, error) {
 
 	// Create authentication endpoint
@@ -262,16 +265,16 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	// Encode form data and create HTTP request
 	authReq, err := http.NewRequestWithContext(ctx, "POST", authUrl, bytes.NewBufferString(form.Encode()))
 	if err != nil {
-		r.reqLogger.Error(err, "Failed to create HTTP request to auth to Goalert")
+		return nil, fmt.Errorf("failed to create HTTP request to auth to Goalert: %w", err)
 	}
 
 	authReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 
 	// Send HTTP request and get response
-	authResp, err := ctxhttp.Do(ctx, http.DefaultClient, authReq)
+	authResp, err := config.HTTPClient().Do(authReq)
 	if err != nil {
-		r.reqLogger.Error(err, "Error sending HTTP request")
+		return nil, fmt.Errorf("error sending HTTP request: %w", err)
 	}
 	defer func() {
 		if err := authResp.Body.Close(); err != nil {
@@ -282,8 +285,10 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	return authResp.Request.Response, nil
 }
 
+// ErrSessionCookieMissing is returned when the GoAlert authentication response does not contain a session cookie.
 var ErrSessionCookieMissing = fmt.Errorf("session cookie is missing")
 
+// fetchSessionCookie extracts the goalert_session.2 cookie from the authentication response.
 func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Response) (*http.Cookie, error) {
 
 	var strCookie string
@@ -306,6 +311,7 @@ func (r *GoalertIntegrationReconciler) fetchSessionCookie(response *http.Respons
 	return httpCookie, nil
 }
 
+// substringAfter returns the portion of s after the first occurrence of sep.
 func substringAfter(s string, sep string) string {
 	substrings := strings.SplitAfter(s, sep)
 	if len(substrings) > 1 {
@@ -315,12 +321,14 @@ func substringAfter(s string, sep string) string {
 	}
 }
 
+// getAllClusterDeployments lists every ClusterDeployment across all namespaces.
 func (r *GoalertIntegrationReconciler) getAllClusterDeployments(ctx context.Context) (*hivev1.ClusterDeploymentList, error) {
 	allClusterDeployments := &hivev1.ClusterDeploymentList{}
 	err := r.List(ctx, allClusterDeployments, &client.ListOptions{})
 	return allClusterDeployments, err
 }
 
+// getMatchingClusterDeployments lists ClusterDeployments whose labels match the GoalertIntegration's selector.
 func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration) (*hivev1.ClusterDeploymentList, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&gi.Spec.ClusterDeploymentSelector)
 	if err != nil {
@@ -333,6 +341,7 @@ func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context
 	return matchingClusterDeployments, err
 }
 
+// cgaoResourcesExist checks whether the ConfigMap, Secret, and SyncSet for a ClusterDeployment already exist.
 func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
 	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
 
@@ -363,10 +372,12 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	return cmExists, secretExist, syncSetExist, nil
 }
 
+// doNotRequeue returns a reconcile result that does not requeue.
 func (r *GoalertIntegrationReconciler) doNotRequeue() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
+// requeueOnErr returns a reconcile result that requeues with the given error.
 func (r *GoalertIntegrationReconciler) requeueOnErr(err error) (reconcile.Result, error) {
 	return reconcile.Result{}, err
 }

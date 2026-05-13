@@ -1,6 +1,22 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
+
+## Docs Index
+
+Detailed domain-specific guidelines live in `docs/`. Consult these before making changes in their respective areas:
+
+- **[Security Guidelines](docs/security-guidelines.md)** -- Credential handling, authentication flow, FIPS compliance, RBAC, injection prevention, container security, logging rules for secrets
+- **[Error Handling Guidelines](docs/error-handling-guidelines.md)** -- Reconcile return conventions (`doNotRequeue`/`requeueOnErr`), K8s error patterns (NotFound, AlreadyExists), log-and-continue vs log-and-return, error wrapping, sentinel errors
+- **[API Contracts Guidelines](docs/api-contracts-guidelines.md)** -- CRD schema, GraphQL mutations/queries, resource naming formula, ConfigMap/Secret/SyncSet data keys, Prometheus metrics contract
+- **[Testing Guidelines](docs/testing-guidelines.md)** -- Table-driven test pattern, httptest mocking, assertion conventions, coverage gaps, envtest setup
+- **[Integration Guidelines](docs/integration-guidelines.md)** -- GoAlert client usage, Hive dual-watch pattern, SyncSet propagation, finalizer lifecycle, heartbeat monitoring, resource creation/deletion order
+
+## Review Exclusions
+
+When reviewing code changes, exclude the following paths from findings. These files are maintained externally and reviewed separately:
+
+- `.claude/hooks/` -- Claude Code hook scripts and their tests
 
 ## Project Overview
 
@@ -8,7 +24,7 @@ Configure GoAlert Operator (CGAO) automates integrating OpenShift clusters with 
 
 ## Build & Development Commands
 
-All build infrastructure comes from [openshift/boilerplate](https://github.com/openshift/boilerplate). The Makefile is minimal — it sets `FIPS_ENABLED=true` and includes boilerplate targets.
+All build infrastructure comes from [openshift/boilerplate](https://github.com/openshift/boilerplate). The Makefile is minimal -- it sets `FIPS_ENABLED=true`, exports `SKIP_SAAS_FILE_CHECKS=y`, and includes boilerplate targets.
 
 ```bash
 # Build
@@ -38,66 +54,137 @@ make boilerplate-update        # Update boilerplate to latest upstream
 
 Use `container-*` variants to match CI behavior exactly. These run inside the boilerplate container image.
 
+### Lint Configuration
+
+The golangci-lint config lives at **`boilerplate/openshift/golang-osd-operator/golangci.yml`** and is used by `make lint` / `make go-check`. It enables: `errcheck`, `gosec`, `govet`, `ineffassign`, `misspell`, `staticcheck`, `unused`.
+
+When adding `//nolint` directives, target only these linters.
+
 ## Architecture
 
-### CRD: GoalertIntegration (`api/v1alpha1/`)
+### Package Layout
 
-Single CRD with spec fields: `clusterDeploymentSelector` (label selector for which ClusterDeployments to integrate), `highEscalationPolicy`/`lowEscalationPolicy` (GoAlert policy IDs), `servicePrefix`, `targetSecretRef`, and `goalertCredsSecretRef`.
-
-### Controller (`controllers/goalertintegration/`)
-
-One reconciler split across multiple files:
-
-- **`goalertintegration_controller.go`** — Main reconcile loop. Watches GoalertIntegration + ClusterDeployment CRs. Authenticates to GoAlert via HTTP basic auth, gets session cookie, then delegates to create/delete handlers.
-- **`clusterdeployment_created.go`** — `handleCreate()`: Creates high/low GoAlert services, integration keys, heartbeat monitors, then creates a ConfigMap (service IDs), Secret (integration keys), and SyncSet (to replicate secret to target cluster).
-- **`clusterdeployment_deleted.go`** — `handleDelete()`: Deletes GoAlert services using IDs stored in the ConfigMap, cleans up ConfigMap/Secret/SyncSet, removes finalizer.
-- **`event_handlers.go`** — Custom event handler mapping ClusterDeployment events to GoalertIntegration reconcile requests.
-- **`heartbeatmonitor_check.go`** — Checks heartbeat monitor state, updates Prometheus metrics.
-
-### GoAlert Client (`pkg/goalert/`)
-
-Raw HTTP/GraphQL client (no GraphQL library). Uses session cookie auth. Implements `Client` interface for testability. All mutations are hand-built GraphQL query strings.
-
-### Supporting Packages
-
-- **`pkg/kube/`** — Helpers to build ConfigMap and SyncSet resources.
-- **`pkg/localmetrics/`** — Prometheus gauges/histograms prefixed `cgao_`.
-- **`pkg/utils/`** — Secret data loading helper.
-- **`config/`** — Operator constants (names, secret keys, env vars, finalizer prefix). The `Name()` function generates resource names as `{servicePrefix}-{clusterDeploymentName}{suffix}`.
+| Path | Purpose |
+|---|---|
+| `api/v1alpha1/` | CRD types (`GoalertIntegration`). See [API Contracts](docs/api-contracts-guidelines.md) for schema details. |
+| `controllers/goalertintegration/` | Reconciler split across 5 files: main loop, create handler, delete handler, event handlers, heartbeat check. |
+| `pkg/goalert/` | Raw HTTP/GraphQL client. Implements `Client` interface. See [Integration Guidelines](docs/integration-guidelines.md). |
+| `pkg/kube/` | Helpers to build ConfigMap, Secret, and SyncSet resources. |
+| `pkg/localmetrics/` | Prometheus gauges/histograms prefixed `cgao_`. See [API Contracts](docs/api-contracts-guidelines.md#prometheus-metrics-contract). |
+| `pkg/utils/` | `LoadSecretData` helper for reading Secret keys (in `secrets.go`). |
+| `config/` | Operator constants (names, secret keys, env vars, finalizer prefix) and the `Name()` function for resource naming. |
+| `deploy/` | Kubernetes manifests including RBAC (ClusterRole), Deployment, ServiceMonitor. Used for OLM-based deployment. |
+| `deploy_pko/` | Package Kubernetes Operator variant of deploy manifests. Alternative deployment path. |
+| `hack/` | OLM artifact templates (including `GOALERT_ENDPOINT_URL` injection), PKO cluster package template, and boilerplate license header. |
+| `build/` | Dockerfiles for the operator, OLM registry, and PKO images. |
 
 ### Key Dependencies
 
+- Go `1.24.0` (from `go.mod`)
 - `sigs.k8s.io/controller-runtime` v0.13.0
-- `github.com/openshift/hive/apis` — ClusterDeployment, SyncSet types
+- `github.com/openshift/hive/apis` -- ClusterDeployment, SyncSet types
+- `github.com/openshift/operator-custom-metrics` -- Custom metrics server (replaces controller-runtime metrics)
+- `github.com/pingcap/errors` -- Legacy; used in `clusterdeployment_created.go` and `heartbeatmonitor_check.go` only
 - GoAlert API endpoint configured via `GOALERT_ENDPOINT_URL` env var
 
-### Reconciliation Flow
+### Reconciliation Flow (Summary)
 
 1. Fetch GoalertIntegration CR
 2. List all ClusterDeployments + those matching the GI's label selector
-3. Authenticate to GoAlert (HTTP basic auth → session cookie)
+3. Authenticate to GoAlert (HTTP basic auth -> session cookie)
 4. Check heartbeat monitors for matching CDs
 5. Handle GI deletion: clean up all CDs with matching finalizer
 6. Handle CD deletion / label un-match: delete GoAlert services
 7. Handle CD creation: if ConfigMap/Secret/SyncSet don't exist, call `handleCreate`
 
-Finalizer pattern: `goalert.managed.openshift.io/goalert-{gi-name}` added to both GoalertIntegration and ClusterDeployment resources.
+For detailed create/delete ordering and cleanup logic, see [Integration Guidelines](docs/integration-guidelines.md).
 
-## Testing
+### Two Deployment Paths
 
-Tests exist only for the GoAlert GraphQL client (`pkg/goalert/service_test.go`). They use `net/http/httptest` to mock the GoAlert API and `testify` for assertions.
+The operator supports two deployment mechanisms:
 
-Running the operator locally requires:
-- `KUBECONFIG` pointing to a cluster with Hive CRDs installed
-- `GOALERT_ENDPOINT_URL` env var set to a GoAlert instance
-- A GoalertIntegration CR with valid credentials secret
+- **OLM** (`deploy/` + `hack/olm-artifacts-template*.yaml`): Traditional Operator Lifecycle Manager. The `deploy/04-operator.yaml` is a template -- `GOALERT_ENDPOINT_URL` and the container image are injected by OLM via the artifact templates in `hack/`.
+- **PKO** (`deploy_pko/` + `build/Dockerfile.pko`): Package Kubernetes Operator. Has its own `manifest.yaml` with phase ordering (crds -> namespace -> rbac -> deploy -> cleanup). The PKO image is a `scratch`-based container holding only the manifests.
+
+The `deploy/04-operator.yaml` does **not** include `GOALERT_ENDPOINT_URL` directly. This is intentional -- the env var is added during OLM/PKO template rendering. Do not add it to the base manifest.
+
+## Cross-Cutting Conventions
+
+### Constants over String Literals
+
+All resource names, secret keys, environment variable names, and finalizer prefixes are defined as constants in `config/config.go`. Never use raw string literals for these values -- always reference the constants. This includes:
+- `config.SecretName`, `config.ConfigMapSuffix`
+- `config.GoalertHighIntKey`, `config.GoalertLowIntKey`, `config.GoalertHeartbeatIntKey`
+- `config.GoalertUsernameSecretKey`, `config.GoalertPasswordSecretKey`
+- `config.GoalertApiEndpointEnvVar`, `config.GoalertFinalizerPrefix`
+- `config.GoalertHighServiceIDKey`, `config.GoalertLowServiceIDKey`, `config.GoalertHeartbeatIDKey`
+
+### Import Organization
+
+Follow the existing three-block import style used throughout the codebase:
+1. Standard library
+2. Third-party / external (including `github.com/openshift/...`, `github.com/pingcap/...`, `github.com/go-logr/...`, `golang.org/x/...`)
+3. Kubernetes libraries (`k8s.io/...`, `sigs.k8s.io/...`)
+
+Note: `clusterdeployment_created.go` and `clusterdeployment_deleted.go` include the `//goland:noinspection SpellCheckingInspection` directive. Maintain this in those files but do not add it to new files unless needed.
+
+### License Header
+
+All non-generated Go files must include the Apache 2.0 license header from `hack/boilerplate.go.txt` (Copyright 2023). The `controller-gen` and `make generate` targets use this file automatically for generated code.
+
+### Controller Reference Pattern
+
+All secondary Kubernetes resources (ConfigMap, Secret, SyncSet) created by the operator must have `controllerutil.SetControllerReference(cd, resource, r.Scheme)` set to the ClusterDeployment, not the GoalertIntegration. This enables garbage collection when the CD is deleted.
+
+### Comment Conventions
+
+All exported functions, methods, types, constants, and variables must have Go doc comments (`// Name does X`). This is standard Go convention and is enforced by CodeRabbit's docstring coverage check. Unexported symbols should also have doc comments when their purpose is not obvious from the name and signature.
+
+Inline implementation comments (comments inside function bodies) should remain minimal -- only add them when the WHY is non-obvious.
+
+### Logging Conventions
+
+- Use `r.reqLogger` (scoped per reconcile) in controller methods. Use the package-level `log` variable only in event handlers where no reconciler receiver is available.
+- Structured logging: `r.reqLogger.Error(err, "message", "key", value)`. Avoid using `%s` format verbs in messages -- put dynamic values in key-value pairs. Note: some existing log messages contain `%s` placeholders (e.g., `"Checking %s heartbeat monitor"`, `"Cluster %s in deletion"`), which is incorrect since logr does not perform fmt-style formatting. Do not replicate this pattern; use structured key-value pairs instead.
+- Never log secret data. Service IDs and resource names are safe to log.
+
+### Context Usage
+
+- Reconciler methods receive a `ctx context.Context` parameter from the framework. Always pass this `ctx` to K8s API calls (`r.Get`, `r.Create`, etc.) and GoAlert client methods.
+- Event handlers (`event_handlers.go`) do not receive a context parameter (the `handler.EventHandler` interface does not provide one). They use `context.TODO()` for K8s API calls. This is the expected pattern for this codebase.
+- All packages, including `pkg/goalert/`, use stdlib `context`.
+
+### Error Import Inconsistency
+
+- `clusterdeployment_created.go` and `heartbeatmonitor_check.go` import `github.com/pingcap/errors` for `IsAlreadyExists`/`IsNotFound`.
+- `clusterdeployment_deleted.go` and `goalertintegration_controller.go` import `k8s.io/apimachinery/pkg/api/errors` (the standard K8s package).
+- New code should use `k8s.io/apimachinery/pkg/api/errors`. The `pingcap/errors` usage is legacy.
+
+### Generated Files -- Do Not Edit
+
+These files are auto-generated and must not be hand-edited:
+- `api/v1alpha1/zz_generated.deepcopy.go` -- regenerated by `make generate`
+- `api/v1alpha1/zz_generated.openapi.go` -- regenerated by `make generate`
+- `boilerplate/` directory -- managed by `make boilerplate-update`
+- `OWNERS_ALIASES` -- managed by boilerplate
+
+After changing CRD types in `api/v1alpha1/goalertintegration_types.go`, always run `make generate && make manifests`.
+
+### Scheme Registration
+
+Three schemes are registered in `main.go`: `clientgoscheme` (core K8s types), `hivev1` (Hive types), and `goalertv1alpha1` (operator CRD). If you add a new external type dependency, register its scheme in the `init()` function in `main.go`.
+
+### Metrics Server
+
+The operator uses `openshift/operator-custom-metrics` for Prometheus metrics, NOT controller-runtime's built-in metrics server. The controller-runtime `MetricsBindAddress` is set to `"0"` (disabled). Metrics are served on port `8080` at `/metrics`. New metrics must be appended to `localmetrics.MetricsList` for automatic registration.
 
 ## CI/CD
 
-- **Tekton** pipelines in `.tekton/` for PR and push events
-- **Boilerplate** container image `v8.3.4` provides the CI environment
-- **Codecov** configured (`.codecov.yml`) — ignores `**/mocks` and `**/zz_generated*.go`
-- **Dependabot** watches Docker image versions in `build/`
+- **Tekton** pipelines in `.tekton/` for PR and push events (both standard and PKO variants). Pipelines use the Konflux `docker-build-oci-ta` pipeline definition. Images are pushed to `quay.io/redhat-user-workloads/fedramp-srep-tenant/`.
+- **Boilerplate** container image (`quay.io/redhat-services-prod/openshift/boilerplate:image-v8.3.4`) provides the CI environment. All `container-*` Make targets run inside this image.
+- **Codecov** configured (`.codecov.yml`) -- ignores `**/mocks` and `**/zz_generated*.go`; coverage checks are informational only and will not block PRs.
+- **Dependabot** watches Docker image versions in `build/`.
+- **Prow presubmits** (via boilerplate): `container-validate` ensures generated code is current, `container-lint` enforces lint, `container-test` runs tests.
 
 ## Owners
 

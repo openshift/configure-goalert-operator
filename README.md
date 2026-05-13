@@ -4,6 +4,40 @@ The Configure GoAlert Operator (CGAO) is used to automate integrating OpenShift 
 
 [![codecov](https://codecov.io/gh/openshift/configure-goalert-operator/branch/main/graph/badge.svg)](https://codecov.io/gh/openshift/configure-goalert-operator)
 
+## Documentation
+
+In addition to this README, the repository includes detailed developer documentation:
+
+- **[AGENTS.md](AGENTS.md)** -- Comprehensive developer reference covering architecture, conventions, known bugs, and CI/CD details
+- **[Security Guidelines](docs/security-guidelines.md)** -- Credential handling, authentication flow, FIPS compliance, RBAC, container security
+- **[Error Handling Guidelines](docs/error-handling-guidelines.md)** -- Reconcile return conventions, Kubernetes error patterns, error wrapping
+- **[API Contracts Guidelines](docs/api-contracts-guidelines.md)** -- CRD schema, GraphQL mutations/queries, resource naming, Prometheus metrics
+- **[Testing Guidelines](docs/testing-guidelines.md)** -- Table-driven test pattern, httptest mocking, assertion conventions, envtest setup
+- **[Integration Guidelines](docs/integration-guidelines.md)** -- GoAlert client usage, Hive dual-watch pattern, SyncSet propagation, finalizer lifecycle
+
+## Project Structure
+
+| Package | Purpose |
+|---|---|
+| `api/v1alpha1/` | CRD types for `GoalertIntegration` |
+| `controllers/goalertintegration/` | Reconciler (main loop, create/delete handlers, event handlers, heartbeat check) |
+| `pkg/goalert/` | HTTP/GraphQL client implementing the `Client` interface |
+| `pkg/kube/` | Helpers to build ConfigMap, Secret, and SyncSet resources |
+| `pkg/localmetrics/` | Prometheus gauges/histograms (prefixed `cgao_`) |
+| `pkg/utils/` | `LoadSecretData` helper for reading Secret keys |
+| `config/` | Operator constants (resource names, secret keys, env vars, finalizer prefix) |
+| `deploy/` | Kubernetes/OLM deployment manifests (RBAC, Deployment, ServiceMonitor) |
+| `deploy_pko/` | Package Kubernetes Operator deployment manifests |
+| `build/` | Dockerfiles for operator, OLM registry, and PKO images |
+
+### Key Dependencies
+
+- **Go 1.23** with FIPS-enabled builds (`FIPS_ENABLED=true`)
+- **controller-runtime** v0.13.0 -- Kubernetes controller framework
+- **openshift/hive** -- ClusterDeployment and SyncSet types
+- **openshift/operator-custom-metrics** -- Prometheus metrics server
+- **GoAlert** -- Upstream alerting platform, accessed via GraphQL at the URL in `GOALERT_ENDPOINT_URL`
+
 ## High level design
 
 To onboard clusters:
@@ -127,7 +161,7 @@ $ oc edit clusterdeployment fake-cluster -n fake-cluster-namespace
 
 **Debugging**
 If using [VScode](https://code.visualstudio.com/), you can use the following `launch.json` file with [delve](https://github.com/go-delve/delve/tree/master/Documentation/installation) installed for debugging the operator:
-```
+```json
 {
     "version": "0.2.0",
     "configurations": [
@@ -138,11 +172,11 @@ If using [VScode](https://code.visualstudio.com/), you can use the following `la
             "mode": "auto",
             "program": "${workspaceFolder}/main.go",
             "env": {
-              "GOALERT_ENDPOINT_URL": "<Goalert endpoint>"
+              "GOALERT_ENDPOINT_URL": "<Goalert endpoint>",
               "KUBECONFIG": "<kubeconfig of cluster to run against>"
             },
             "args": []
           }
     ]
 }
-``` 
+```
