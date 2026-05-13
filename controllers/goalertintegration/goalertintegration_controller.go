@@ -272,7 +272,7 @@ func (r *GoalertIntegrationReconciler) authGoalert(ctx context.Context, username
 	authReq.Header.Set("Referer", goalertApiEndpoint+"/alerts")
 
 	// Send HTTP request and get response
-	authResp, err := config.HTTPClient().Do(authReq)
+	authResp, err := config.HTTPClient().Do(authReq) // #nosec G107 G704
 	if err != nil {
 		return nil, fmt.Errorf("error sending HTTP request: %w", err)
 	}

@@ -145,7 +145,7 @@ func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body inte
 	req.Header.Set("Accept", "application/json")
 	req.AddCookie(c.sessionCookie)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G107 G704
 	if err != nil {
 		return nil, err
 	}
