@@ -39,6 +39,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 		return nil
 	}
 
+	// Evaluate edge-cases where Goalert service no longer needs to be deleted
 	if err := r.deleteGoalertServicesAndConfigMap(ctx, cd, gi, gclient); err != nil {
 		return err
 	}

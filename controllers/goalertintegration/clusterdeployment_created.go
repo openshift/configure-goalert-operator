@@ -130,11 +130,13 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		return err
 	}
 
+	// add secret part
 	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKey, lowIntKey, heartbeatMonitorKey)
 	if err := r.reconcileGoalertSecret(ctx, cd, secret, highIntKey, lowIntKey, heartbeatMonitorKey); err != nil {
 		return err
 	}
 
+	// Create syncset that will propagate secret to customer cluster
 	return r.reconcileGoalertSyncSet(ctx, cd, secretName, secret, gi)
 }
 
