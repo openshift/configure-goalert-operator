@@ -57,15 +57,6 @@ boilerplate/_lib/container-make generate
 # - Mock interfaces for testing
 ```
 
-### Run Locally
-```bash
-# Run against cluster in ~/.kube/config
-make run
-
-# Run with verbose logging
-make run-verbose
-```
-
 ### Container-based Build
 ```bash
 # Run make targets inside boilerplate container
@@ -107,9 +98,6 @@ ginkgo -skip="E2E" -r ./...
 ## Debugging
 
 ```bash
-# Verbose operator logs
-make run-verbose
-
 # Print specific package logs
 go test -v ./pkg/... 2>&1 | grep "MyFunction"
 
@@ -193,6 +181,4 @@ boilerplate/_lib/container-make go-test
 ## Further Reading
 
 - [Testing Guide](./TESTING.md)
-- [Design Documentation](./docs/design.md)
-- [How to Test](./docs/how-to-test.md)
 - [Operator SDK Docs](https://sdk.operatorframework.io/)

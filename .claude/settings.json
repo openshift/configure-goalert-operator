@@ -25,12 +25,15 @@
       "Bash(git branch)",
       "Bash(grep *)",
       "Bash(find *)",
-      "Bash(ls *)",
-      "Bash(cat *)"
+      "Bash(ls *)"
     ],
     "ask": [
       "Bash(git commit *)",
       "Bash(git push *)",
+      "Bash(git push --force-with-lease)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git push * --force-with-lease)",
+      "Bash(git push * --force-with-lease *)",
       "Bash(git reset *)",
       "Bash(git rebase *)",
       "Bash(make docker-build)",
@@ -50,10 +53,6 @@
       "Bash(git push * --force *)",
       "Bash(git push * -f)",
       "Bash(git push * -f *)",
-      "Bash(git push --force-with-lease)",
-      "Bash(git push --force-with-lease *)",
-      "Bash(git push * --force-with-lease)",
-      "Bash(git push * --force-with-lease *)",
       "Bash(rm -rf /)",
       "Bash(chmod 777 *)"
     ]
