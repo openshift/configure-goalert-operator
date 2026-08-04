@@ -4,64 +4,65 @@ metadata:
   name: configure-goalert-operator
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
   - goalert.managed.openshift.io
   resources:
   - goalertintegrations
-  - goalertintegrations/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - goalert.managed.openshift.io
+  resources:
   - goalertintegrations/finalizers
   verbs:
-  - get
-  - list
-  - watch
   - update
 - apiGroups:
-  - ""
+  - goalert.managed.openshift.io
   resources:
-  - pods
-  - services
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
-  - secrets
-  verbs:
-  - "*"
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
+  - goalertintegrations/status
   verbs:
   - get
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - "*"
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - "get"
-  - "create"
+  - patch
+  - update
 - apiGroups:
   - hive.openshift.io
-  attributeRestrictions: null
   resources:
   - clusterdeployments
-  - clusterdeployments/finalizers
-  - clusterdeployments/status
-  - syncsets
   verbs:
   - get
   - list
-  - watch
-  - update
   - patch
+  - watch
 - apiGroups:
   - hive.openshift.io
   resources:
@@ -69,9 +70,12 @@ rules:
   verbs:
   - create
   - delete
+  - get
 - apiGroups:
   - route.openshift.io
   resources:
   - routes
   verbs:
-  - '*'
+  - create
+  - get
+  - update
