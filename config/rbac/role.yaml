@@ -13,7 +13,9 @@ rules:
   - create
   - delete
   - get
+  - list
   - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -22,6 +24,8 @@ rules:
   - create
   - delete
   - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -73,6 +77,8 @@ rules:
   - create
   - delete
   - get
+  - list
+  - watch
 - apiGroups:
   - route.openshift.io
   resources:

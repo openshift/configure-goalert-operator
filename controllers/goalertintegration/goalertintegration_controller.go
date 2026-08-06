@@ -66,11 +66,13 @@ var log = logf.Log.WithName("controller_goalertintegration")
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=goalert.managed.openshift.io,resources=goalertintegrations/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;create;delete
+// Note: configmaps and secrets include list/watch for controller-runtime's informer cache,
+// though reconciler only performs namespaced Get operations by name
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;create;update
 //+kubebuilder:rbac:groups=hive.openshift.io,resources=clusterdeployments,verbs=get;list;watch;patch
-//+kubebuilder:rbac:groups=hive.openshift.io,resources=syncsets,verbs=get;create;delete
+//+kubebuilder:rbac:groups=hive.openshift.io,resources=syncsets,verbs=get;list;watch;create;delete
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;create;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
