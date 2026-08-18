@@ -6,5 +6,12 @@
   "enabledManagers": [
     "tekton",
     "gomod"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["tekton"],
+      "matchPackagePatterns": ["^quay.io/konflux-ci/tekton-catalog/"],
+      "versioning": "loose"
+    }
   ]
 }
