@@ -9,6 +9,7 @@ reviewers:
 - cjnovak98
 - PeterCSRE
 - digilink
+- dwelch0
 approvers:
 - theautoroboto
 - katherinelc321
@@ -20,6 +21,7 @@ approvers:
 - cjnovak98
 - PeterCSRE
 - digilink
+- dwelch0
 maintainers:
 - theautoroboto
 - katherinelc321
@@ -31,3 +33,4 @@ maintainers:
 - cjnovak98
 - PeterCSRE
 - digilink
+- dwelch0
