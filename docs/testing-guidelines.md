@@ -28,8 +28,8 @@ Coverage is configured in `.codecov.yml`:
 
 ## Current Coverage Gaps
 
-The following packages have zero test coverage and are the highest-priority areas for new tests:
-- `controllers/goalertintegration/` -- all five files (main reconciler, create handler, delete handler, event handlers, heartbeat check)
+Unit tests now cover the main reconciler (`goalertintegration_controller_test.go`) and the create handler (`clusterdeployment_created_test.go`), with shared test doubles in `helpers_test.go`. The following still have zero test coverage and are the highest-priority areas for new tests:
+- `controllers/goalertintegration/` -- delete handler (`clusterdeployment_deleted.go`), event handlers (`event_handlers.go`), and heartbeat check (`heartbeatmonitor_check.go`)
 - `pkg/kube/` -- `GenerateConfigMap`, `GenerateGoalertSecret`, `GenerateSyncSet`
 - `pkg/utils/` -- `LoadSecretData`
 - `pkg/localmetrics/` -- metric update and delete helpers

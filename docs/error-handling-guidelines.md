@@ -17,7 +17,7 @@ return r.requeueOnErr(err)
 - `requeueOnErr` -- any error fetching the GI, listing ClusterDeployments, updating finalizers, or failing `handleDelete` during GI/CD deletion.
 - Direct `return reconcile.Result{}, err` -- used only from `cgaoResourcesExist` for unexpected K8s API errors. Keep this limited; prefer the helpers.
 
-**Note:** The main reconcile loop ends with `return ctrl.Result{}, nil` (equivalent to `doNotRequeue`). Errors from `handleCreate` in the creation loop are logged but do **not** cause a requeue -- they use a log-and-continue pattern. This is intentional: a single failing CD should not block progress on others.
+**Note:** The main reconcile loop's creation phase uses a **continue-then-aggregate-and-requeue** pattern. Errors from `handleCreate` are logged per ClusterDeployment and the loop continues, so a single failing CD does not block progress on the others. After the loop, if any CD failed, the accumulated errors are combined with `utilerrors.NewAggregate` and returned through `requeueOnErr`, so the reconcile requeues with exponential backoff (prompt self-heal). When every CD succeeds, the loop ends with `return ctrl.Result{}, nil` (equivalent to `doNotRequeue`).
 
 ## Log-and-Continue vs Log-and-Return
 
@@ -28,7 +28,7 @@ The codebase uses two distinct error-handling strategies in the main `Reconcile(
 Used when a failure for one item should not block processing of other items, or when the operation will be retried on the next reconcile anyway:
 - Credential loading failures (`LoadSecretData` for username/password)
 - Heartbeat monitor checks per ClusterDeployment
-- `handleCreate` failures for individual CDs in the creation loop
+- `handleCreate` failures for individual CDs in the creation loop -- logged and the loop **continues** to the next CD, but the error is also accumulated and returned after the loop (continue-then-aggregate-and-requeue; see the Note under *Reconcile Return Helpers*)
 - `handleDelete` for unmatched CDs (label removed, not CD-deletion or GI-deletion)
 
 ### Log-and-return (stop and requeue)

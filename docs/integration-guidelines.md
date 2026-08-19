@@ -37,7 +37,7 @@ Authentication is a two-step process performed every reconcile (the session cook
 5. **Ensure Low integration key** (`ensureIntegrationKey`)
 6. **Ensure heartbeat monitor** (`ensureHeartbeatMonitor` helper: GET via `GetHeartbeatMonitor`, create via `CreateHeartbeatMonitor` only if absent; on the High service, 15-minute timeout)
 7. **Create or update ConfigMap** (stores `HIGH_SERVICE_ID`, `LOW_SERVICE_ID`, `HEARTBEATMONITOR_ID`). If `AlreadyExists`, call `Update` and fall through (do not return early).
-8. **Guard and create Secret** -- before calling `Create`, verify all three integration key hrefs are non-empty. If any are empty, return an error to requeue (never persist an empty secret, which would break alerting). If Secret `AlreadyExists`, compare data; if changed, delete and recreate.
+8. **Guard and create Secret** -- before calling `Create`, verify all three integration key hrefs are non-empty. If any are empty, return an error (never persist an empty secret, which would break alerting); the reconcile loop accumulates this error and, after processing every matching CD, requeues with backoff so the keys are re-fetched. If Secret `AlreadyExists`, compare data; if changed, delete and recreate.
 9. **Create SyncSet** (references the Secret for propagation). Uses `Get`-then-create approach.
 
 Each step depends on IDs/keys from previous steps. If any GoAlert API call fails, return the error immediately -- do not create partial K8s resources.
