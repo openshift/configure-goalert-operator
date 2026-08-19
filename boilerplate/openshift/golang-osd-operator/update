@@ -183,6 +183,11 @@ TEKTON_DIR="${REPO_ROOT}/.tekton"
 if [ -d "$TEKTON_DIR" ]; then
 	for pipeline_file in "$TEKTON_DIR"/*.yaml; do
 		if [ -f "$pipeline_file" ] && grep -q buildah "${pipeline_file}" && ! grep -q "pipelineRef:" "$pipeline_file"; then
+			# Skip centralization if file has boilerplate-skip-pipeline-centralization marker
+			if grep -q "boilerplate-skip-pipeline-centralization" "$pipeline_file"; then
+				echo "Skipping centralization for: $(basename "$pipeline_file") (marked to skip)"
+				continue
+			fi
 			echo "Centralizing pipeline: $(basename "$pipeline_file")"
 			python3 "${HERE}/migrate_build_pipeline.py" "${pipeline_file}"
 		fi

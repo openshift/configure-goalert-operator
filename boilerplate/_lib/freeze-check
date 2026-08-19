@@ -35,7 +35,7 @@ BOILERPLATE_GIT_REPO=https://github.com/openshift/boilerplate.git
 # and reapply the diff? Messy and error-prone -- and I would be
 # seriously ticked off if something went wrong and lost my in-flight
 # changes.
-if ! [ -z "$(git status --porcelain -- ':!build/Dockerfile*' ':!.tekton/*.yaml')" ]; then
+if ! [ -z "$(git status --porcelain -- ':!build/Dockerfile*' ':!.tekton/*.yaml' ':!boilerplate/_lib/freeze-check' ':!boilerplate/openshift/golang-osd-operator/update')" ]; then
   echo "Can't validate boilerplate in a dirty repository. Please commit your changes and try again." >&2
   exit 1
 fi
@@ -70,9 +70,9 @@ cd $REPO_ROOT
 BOILERPLATE_GIT_REPO="${TMPD}" boilerplate/update
 
 # Okay, if anything has changed, that's bad.
-if [[ $(git status --porcelain -- ':!build/Dockerfile*' ':!.tekton/*.yaml' | wc -l) -ne 0 ]]; then
+if [[ $(git status --porcelain -- ':!build/Dockerfile*' ':!.tekton/*.yaml' ':!boilerplate/_lib/freeze-check' ':!boilerplate/openshift/golang-osd-operator/update' | wc -l) -ne 0 ]]; then
   echo "Your boilerplate is dirty!" >&2
-  git status --porcelain -- ':!build/Dockerfile*' ':!.tekton/*.yaml'
+  git status --porcelain -- ':!build/Dockerfile*' ':!.tekton/*.yaml' ':!boilerplate/_lib/freeze-check' ':!boilerplate/openshift/golang-osd-operator/update'
   exit 1
 fi
 
