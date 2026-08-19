@@ -94,6 +94,23 @@ func TestCgaoResourcesExistSecretContentAware(t *testing.T) {
 			expectedSecretBool: false,
 		},
 		{
+			name: "secret with all three integration keys present but empty returns false",
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      config.SecretName,
+						Namespace: cd.Namespace,
+					},
+					Data: map[string][]byte{
+						config.GoalertHighIntKey:      {},
+						config.GoalertLowIntKey:       {},
+						config.GoalertHeartbeatIntKey: {},
+					},
+				},
+			},
+			expectedSecretBool: false,
+		},
+		{
 			name: "secret with all three integration keys populated returns true",
 			objects: []client.Object{
 				&corev1.Secret{

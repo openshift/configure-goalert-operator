@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -238,7 +239,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	// Create service in Goalert
+	// Create service in Goalert. A per-CD failure is logged and collected but
+	// does not abort the loop, so one failing ClusterDeployment cannot block the
+	// others. After the loop, any accumulated errors are aggregated and returned
+	// so the reconcile requeues with backoff (prompt self-heal).
+	var createErrs []error
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
@@ -249,9 +254,13 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 			if !cmExists || !secretExists || !syncsetExists {
 				if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
 					r.reqLogger.Error(err, "failing to register cluster with Goalert")
+					createErrs = append(createErrs, err)
 				}
 			}
 		}
+	}
+	if len(createErrs) > 0 {
+		return r.requeueOnErr(utilerrors.NewAggregate(createErrs))
 	}
 
 	return ctrl.Result{}, nil
