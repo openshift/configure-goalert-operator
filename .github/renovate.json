@@ -10,8 +10,10 @@
   "packageRules": [
     {
       "matchManagers": ["tekton"],
-      "matchPackagePatterns": ["^quay.io/konflux-ci/tekton-catalog/"],
-      "versioning": "loose"
+      "versioning": "loose",
+      "matchPackageNames": [
+        "/^quay.io/konflux-ci/tekton-catalog//"
+      ]
     }
   ]
 }
