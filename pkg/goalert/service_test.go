@@ -151,8 +151,8 @@ func Test_CreateService(t *testing.T) {
 				EscalationPolicyID: "123-bad",
 			},
 			expectedID:  "",
-			respData:    []byte(`{"data":{"createService":null}}`),
-			expectedErr: false,
+			respData:    []byte(`{"data":{"createService":null},"errors":[{"message":"escalation policy not found"}]}`),
+			expectedErr: true,
 		},
 		{
 			name: "Failed unmarshalling response",
@@ -229,8 +229,8 @@ func Test_CreateIntegrationKey(t *testing.T) {
 				Name: "Test Integration Key",
 			},
 			expectedKey: "",
-			respData:    []byte(`{"data":{"createIntegrationKey":null}}`),
-			expectedErr: false,
+			respData:    []byte(`{"data":{"createIntegrationKey":null},"errors":[{"message":"service not found"}]}`),
+			expectedErr: true,
 		},
 		{
 			name: "Failed unmarshalling response",
@@ -308,8 +308,8 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 			},
 			expectedKey: "",
 			expectedId:  "",
-			respData:    []byte(`{"data":{"createHeartbeatMonitor":null}}`),
-			expectedErr: false,
+			respData:    []byte(`{"data":{"createHeartbeatMonitor":null},"errors":[{"message":"service not found"}]}`),
+			expectedErr: true,
 		},
 		{
 			name: "Failed unmarshalling response",

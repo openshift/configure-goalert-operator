@@ -42,7 +42,7 @@ type Client interface {
 	// DeleteService deletes a GoAlert service by ID.
 	DeleteService(ctx context.Context, data *Data) error
 	// NewRequest sends an HTTP request to the GoAlert GraphQL API and returns the response body.
-	NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error)
+	NewRequest(ctx context.Context, method string, body any) ([]byte, error)
 	// IsHeartbeatMonitorInactive checks whether a heartbeat monitor is in the inactive state.
 	IsHeartbeatMonitorInactive(ctx context.Context, data *Data) (bool, error)
 }
@@ -85,6 +85,7 @@ type RespSvcData struct {
 			ID string `json:"id"`
 		} `json:"createService"`
 	} `json:"data"`
+	Errors []GraphQLError `json:"errors,omitempty"`
 }
 
 // RespIntKeyData describes int key returned from createIntegrationKey
@@ -94,6 +95,7 @@ type RespIntKeyData struct {
 			Key string `json:"href"`
 		} `json:"createIntegrationKey"`
 	} `json:"data"`
+	Errors []GraphQLError `json:"errors,omitempty"`
 }
 
 // RespHeartBeatData describes a heartbeat monitor key from createHeartbeatMonitor
@@ -104,6 +106,7 @@ type RespHeartBeatData struct {
 			Id  string `json:"id"`
 		} `json:"createHeartbeatMonitor"`
 	} `json:"data"`
+	Errors []GraphQLError `json:"errors,omitempty"`
 }
 
 // RespDelete contains boolean returned from deleteAll
@@ -122,8 +125,19 @@ type RespHeartbeatState struct {
 	} `json:"data"`
 }
 
+// GraphQLError represents a single error in a GraphQL response.
+type GraphQLError struct {
+	Message string `json:"message"`
+	Path    []any  `json:"path,omitempty"`
+}
+
+// GraphQLErrorResponse wraps GraphQL errors returned in HTTP 200 responses.
+type GraphQLErrorResponse struct {
+	Errors []GraphQLError `json:"errors,omitempty"`
+}
+
 // NewRequest is a wrapper func to help send the http request
-func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body interface{}) ([]byte, error) {
+func (c *GraphqlClient) NewRequest(ctx context.Context, method string, body any) ([]byte, error) {
 
 	goalertApiEndpoint := os.Getenv(config.GoalertApiEndpointEnvVar)
 
@@ -181,6 +195,15 @@ func (c *GraphqlClient) CreateService(ctx context.Context, data *Data) (string, 
 	if err != nil {
 		return "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
+
+	if len(r.Errors) > 0 {
+		return "", fmt.Errorf("GoAlert GraphQL error creating service: %s", r.Errors[0].Message)
+	}
+
+	if r.Data.CreateService.ID == "" {
+		return "", fmt.Errorf("GoAlert returned empty service ID (response: %s)", string(respData))
+	}
+
 	return r.Data.CreateService.ID, nil
 }
 
@@ -201,6 +224,14 @@ func (c *GraphqlClient) CreateIntegrationKey(ctx context.Context, data *Data) (s
 	err = json.Unmarshal(respData, &r)
 	if err != nil {
 		return "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
+	}
+
+	if len(r.Errors) > 0 {
+		return "", fmt.Errorf("GoAlert GraphQL error creating integration key: %s", r.Errors[0].Message)
+	}
+
+	if r.Data.CreateIntKey.Key == "" {
+		return "", fmt.Errorf("GoAlert returned empty integration key (response: %s)", string(respData))
 	}
 
 	return r.Data.CreateIntKey.Key, nil
@@ -224,6 +255,15 @@ func (c *GraphqlClient) CreateHeartbeatMonitor(ctx context.Context, data *Data) 
 	if err != nil {
 		return "", "", fmt.Errorf("unable to unmarshal response %s: %w", string(respData), err)
 	}
+
+	if len(r.Errors) > 0 {
+		return "", "", fmt.Errorf("GoAlert GraphQL error creating heartbeat monitor: %s", r.Errors[0].Message)
+	}
+
+	if r.Data.CreateHeartBeatKey.Key == "" || r.Data.CreateHeartBeatKey.Id == "" {
+		return "", "", fmt.Errorf("GoAlert returned empty heartbeat key or ID (response: %s)", string(respData))
+	}
+
 	return r.Data.CreateHeartBeatKey.Key, r.Data.CreateHeartBeatKey.Id, nil
 }
 
