@@ -41,6 +41,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// ensureService returns the ID of an existing GoAlert service matching data.Name, creating it if absent.
+func ensureService(ctx context.Context, gclient goalert.Client, data *goalert.Data) (string, error) {
+	id, err := gclient.GetServiceIDByName(ctx, data.Name)
+	if err != nil {
+		return "", err
+	}
+	if id != "" {
+		return id, nil
+	}
+	return gclient.CreateService(ctx, data)
+}
+
+// ensureIntegrationKey returns the href of an existing integration key matching data.Name on data.Id, creating it if absent.
+func ensureIntegrationKey(ctx context.Context, gclient goalert.Client, data *goalert.Data) (string, error) {
+	href, err := gclient.GetIntegrationKeyHref(ctx, data.Id, data.Name, data.Type)
+	if err != nil {
+		return "", err
+	}
+	if href != "" {
+		return href, nil
+	}
+	return gclient.CreateIntegrationKey(ctx, data)
+}
+
+// ensureHeartbeatMonitor returns the href and id of an existing heartbeat monitor matching data.Name on data.Id, creating it if absent.
+func ensureHeartbeatMonitor(ctx context.Context, gclient goalert.Client, data *goalert.Data) (string, string, error) {
+	href, id, err := gclient.GetHeartbeatMonitor(ctx, data.Id, data.Name)
+	if err != nil {
+		return "", "", err
+	}
+	if href != "" && id != "" {
+		return href, id, nil
+	}
+	return gclient.CreateHeartbeatMonitor(ctx, data)
+}
+
 // handleCreate provisions GoAlert services, integration keys, and a heartbeat monitor for a ClusterDeployment, then creates the corresponding ConfigMap, Secret, and SyncSet.
 func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient goalert.Client, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) error {
 
@@ -82,13 +118,13 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		Favorite:           true,
 	}
 
-	highSvcID, err := gclient.CreateService(ctx, dataHighSvc)
+	highSvcID, err := ensureService(ctx, gclient, dataHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for High alerts")
 		localmetrics.UpdateMetricCGAOCreateFailure(1, dataHighSvc.Name)
 		return err
 	}
-	lowSvcID, err := gclient.CreateService(ctx, dataLowSvc)
+	lowSvcID, err := ensureService(ctx, gclient, dataLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create service for Low alerts")
 		localmetrics.UpdateMetricCGAOCreateFailure(1, dataLowSvc.Name)
@@ -107,12 +143,12 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		Name: "Low alerts",
 	}
 
-	highIntKey, err := gclient.CreateIntegrationKey(ctx, dataIntKeyHighSvc)
+	highIntKey, err := ensureIntegrationKey(ctx, gclient, dataIntKeyHighSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create integration key for high alerts")
 		return err
 	}
-	lowIntKey, err := gclient.CreateIntegrationKey(ctx, dataIntKeyLowSvc)
+	lowIntKey, err := ensureIntegrationKey(ctx, gclient, dataIntKeyLowSvc)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create integration key for low alerts")
 		return err
@@ -125,7 +161,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		Timeout: 15,
 	}
 
-	heartbeatMonitorKey, heartbeatMonitorId, err := gclient.CreateHeartbeatMonitor(ctx, dataHeartbeatMonitor)
+	heartbeatMonitorKey, heartbeatMonitorId, err := ensureHeartbeatMonitor(ctx, gclient, dataHeartbeatMonitor)
 	if err != nil {
 		r.reqLogger.Error(err, "Failed to create heartbeat monitor")
 		return err
