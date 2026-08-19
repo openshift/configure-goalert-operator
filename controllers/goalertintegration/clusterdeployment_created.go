@@ -35,7 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -233,8 +233,8 @@ func setControllerReferenceWithoutBlockingDeletion(owner, controlled metav1.Obje
 		Kind:               gvk.Kind,
 		Name:               owner.GetName(),
 		UID:                owner.GetUID(),
-		BlockOwnerDeletion: pointer.Bool(false),
-		Controller:         pointer.Bool(true),
+		BlockOwnerDeletion: ptr.To(false),
+		Controller:         ptr.To(true),
 	}
 
 	controlled.SetOwnerReferences(append(controlled.GetOwnerReferences(), ref))
