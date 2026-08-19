@@ -4,6 +4,8 @@ The Configure GoAlert Operator (CGAO) is used to automate integrating OpenShift 
 
 [![codecov](https://codecov.io/gh/openshift/configure-goalert-operator/branch/main/graph/badge.svg)](https://codecov.io/gh/openshift/configure-goalert-operator)
 
+> **⚠️ Disclaimer:** Portions of this code have been generated using AI.
+
 ## Documentation
 
 In addition to this README, the repository includes detailed developer documentation:
@@ -21,7 +23,7 @@ In addition to this README, the repository includes detailed developer documenta
 |---|---|
 | `api/v1alpha1/` | CRD types for `GoalertIntegration` |
 | `controllers/goalertintegration/` | Reconciler (main loop, create/delete handlers, event handlers, heartbeat check) |
-| `pkg/goalert/` | HTTP/GraphQL client implementing the `Client` interface |
+| `pkg/goalert/` | HTTP/GraphQL client implementing the `Client` interface (create, read, delete operations) |
 | `pkg/kube/` | Helpers to build ConfigMap, Secret, and SyncSet resources |
 | `pkg/localmetrics/` | Prometheus gauges/histograms (prefixed `cgao_`) |
 | `pkg/utils/` | `LoadSecretData` helper for reading Secret keys |
@@ -32,8 +34,8 @@ In addition to this README, the repository includes detailed developer documenta
 
 ### Key Dependencies
 
-- **Go 1.23** with FIPS-enabled builds (`FIPS_ENABLED=true`)
-- **controller-runtime** v0.13.0 -- Kubernetes controller framework
+- **Go 1.24.0** with FIPS-enabled builds (`FIPS_ENABLED=true`)
+- **controller-runtime** v0.19.0 -- Kubernetes controller framework
 - **openshift/hive** -- ClusterDeployment and SyncSet types
 - **openshift/operator-custom-metrics** -- Prometheus metrics server
 - **GoAlert** -- Upstream alerting platform, accessed via GraphQL at the URL in `GOALERT_ENDPOINT_URL`
@@ -45,10 +47,10 @@ To onboard clusters:
 * Create a GoalertIntegration CR
 * Create a Goalert Integration controller that watches for changes to GoalertIntegration CRs, and also for changes to appropriately labeled ClusterDeployment CRs.
 * For each GoalertIntegration CR, it will get a list of matching ClusterDeployments that have the `spec.installed` field set to true.
-* For each of these ClusterDeployments, the operator will leverage GraphQL to create 2 new services in Goalert, one for high alerts and one for low alerts, each with the cluster UID as name
-* For the high alerts service, the operator will make an api call to generate an integration key and a heartbeat api endpoint. The service will be attached to the SREP High alerts escalation policy
-* For the low alerts service, the operator will only create a new integration key
-* The operator will then create a secret in the cluster which contains the integration keys and heartbeat api endpoint required to communicate with Goalert Web application.
+* For each of these ClusterDeployments, the operator will leverage GraphQL to ensure 2 services exist in Goalert (adopting pre-existing services by exact name match or creating new ones), one for high alerts and one for low alerts, each with the cluster UID as name
+* For the high alerts service, the operator will ensure an integration key and a heartbeat api endpoint exist. The service will be attached to the SREP High alerts escalation policy
+* For the low alerts service, the operator will ensure an integration key exists
+* The operator will then create (or self-heal) a secret in the cluster namespace which contains the integration keys and heartbeat api endpoint required to communicate with Goalert Web application. The operator refuses to persist a secret with empty integration keys, requeuing until all keys are available.
 
 To off-board clusters:
 
@@ -56,7 +58,7 @@ To off-board clusters:
 
 ## Development and Testing
 
-Changes made to the operator should be tested and validated before a PR is submitted and approved. 
+Changes made to the operator should be tested and validated before a PR is submitted and approved.
 
 Your test process should include:
 * Validating the operator image builds and has no CVE's introduced
@@ -91,8 +93,8 @@ $ oc apply -f config/crds
     ```
 4. Create the namespace: `oc create ns configure-goalert-operator`
 5. Deploy the operator: `oc create -f deploy/`
-6. Create test user in Goalert 
-7. Create secret with Goalert test user credentials 
+6. Create test user in Goalert
+7. Create secret with Goalert test user credentials
 ```shell
 apiVersion: v1
 data:
@@ -109,7 +111,7 @@ type: Opaque
 
 `configure-goalert-operator` doesn't start reconciling clusters until `spec.installed` is set to `true`.
 
-You can create a dummy ClusterDeployment by copying a real one from an active hive. Warning: deleting the copied CD may trigger the deletion of the AWS objects of the real CD. Set the following spec to keep hive from deprovisioning the resources 
+You can create a dummy ClusterDeployment by copying a real one from an active hive. Warning: deleting the copied CD may trigger the deletion of the AWS objects of the real CD. Set the following spec to keep hive from deprovisioning the resources
 
 ```
 spec:

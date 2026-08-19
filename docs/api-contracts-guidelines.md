@@ -99,8 +99,13 @@ All GraphQL calls go to `{GOALERT_ENDPOINT_URL}/api/graphql` as POST requests wi
 | Operation | GraphQL | Input | Returns |
 |---|---|---|---|
 | Heartbeat State | `heartbeatMonitor` | `id` | `lastState` (string; `"inactive"` = unhealthy) |
+| Service Search | `services` | `search`, `first` | `nodes` array with `id`, `name` fields |
+| Service Integration Keys | `service` | `id` | `integrationKeys` array with `id`, `name`, `type`, `href` fields |
+| Service Heartbeat Monitors | `service` | `id` | `heartbeatMonitors` array with `id`, `name`, `href` fields |
 
 The `type` field for integration keys is always `prometheusAlertmanager` (unquoted enum in GraphQL, not a quoted string). The heartbeat monitor timeout is always `15` minutes. String parameters are quoted via `strconv.Quote()`.
+
+**Read method semantics:** The three new read queries (service search, integration keys, heartbeat monitors) power the get-or-create/adopt pattern. The GoAlert search API is fuzzy, so the `Client` interface methods (`GetServiceIDByName`, `GetIntegrationKeyHref`, `GetHeartbeatMonitor`) perform **exact client-side name matching** on the returned arrays. A successful no-match returns an empty string (or empty strings) with `nil` error. Only transport/unmarshal/GraphQL `errors` failures produce a non-nil error.
 
 ### Response Structs
 

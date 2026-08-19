@@ -72,9 +72,23 @@ if err := r.Create(ctx, resource); err != nil {
 }
 ```
 
-The ConfigMap uses this to fall through to an `Update` call. The Secret uses it to compare data and conditionally delete-then-recreate. The SyncSet does a `Get`-first approach instead (it queries before creating). Follow the existing pattern for the resource type you are modifying.
+The ConfigMap uses this to call `Update` on `AlreadyExists` and **fall through** to the Secret and SyncSet reconciliation (previously it returned early, skipping them). The Secret uses it to compare data and conditionally delete-then-recreate. The SyncSet does a `Get`-first approach instead (it queries before creating). Follow the existing pattern for the resource type you are modifying.
 
 **Important:** `handleCreate` uses `"github.com/pingcap/errors"` for `IsAlreadyExists`/`IsNotFound`, while `handleDelete` and the main controller use `"k8s.io/apimachinery/pkg/api/errors"`. Both provide the same `IsNotFound`/`IsAlreadyExists` methods. New code should prefer `"k8s.io/apimachinery/pkg/api/errors"` (the standard K8s package) for consistency with the main controller and delete handler. The `pingcap/errors` usage in `clusterdeployment_created.go` and `heartbeatmonitor_check.go` is legacy.
+
+### Refuse-to-Write-Empty Pattern
+
+Before creating the `goalert-secret`, `handleCreate` verifies that all three integration key hrefs are non-empty. If any are empty, it returns an error to trigger a requeue:
+
+```go
+if highIntKey == "" || lowIntKey == "" || heartbeatMonitorKey == "" {
+    err := fmt.Errorf("refusing to write goalert secret with empty integration key(s) (high=%t low=%t heartbeat=%t)", ...)
+    r.reqLogger.Error(err, "empty integration key(s); requeuing", ...)
+    return err  // requeue
+}
+```
+
+This prevents persisting a broken secret (which would break alerting on the managed cluster). The next reconcile re-fetches the keys from GoAlert. The log message uses boolean conversions (`highIntKey != ""`) to avoid logging secret values.
 
 ## Error Wrapping Conventions
 

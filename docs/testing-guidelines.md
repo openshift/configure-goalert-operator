@@ -15,7 +15,9 @@ Pass extra flags via `TESTOPTS`: `TESTOPTS="-v -count=1" make go-test`.
 
 ## Test File Location
 
-Tests live alongside the code they test in the same package (white-box testing). The only test file currently is `pkg/goalert/service_test.go`. There are no controller tests -- the `controllers/goalertintegration/` package has zero test files.
+Tests live alongside the code they test in the same package (white-box testing). Test files currently include:
+- `pkg/goalert/service_test.go` -- GoAlert client tests
+- `controllers/goalertintegration/*_test.go` -- Controller reconciliation tests using a hand-written stub that implements the `goalert.Client` interface plus the controller-runtime `client/fake` client for K8s API interactions
 
 ## Coverage Configuration
 
@@ -115,11 +117,11 @@ type GoalertIntegrationReconciler struct {
 }
 ```
 
-`gclient` is set to `goalert.NewClient` in `SetupWithManager` but can be overridden in tests to inject a mock `Client` implementation. When writing controller tests, provide a mock that implements the `Client` interface rather than standing up an httptest server.
+`gclient` is set to `goalert.NewClient` in `SetupWithManager` but can be overridden in tests to inject a mock `Client` implementation. Controller tests use a hand-written stub that implements the `Client` interface (returning controllable test data or errors) in combination with the controller-runtime `client/fake` client for K8s resource operations. Tests follow the table-driven pattern with `testify/assert` for assertions.
 
 ## envtest Setup for Controller Tests
 
-No controller tests exist yet. When adding them, register all three schemes that `main.go` registers:
+Controller tests register all three schemes that `main.go` registers:
 
 ```go
 utilruntime.Must(clientgoscheme.AddToScheme(scheme))
