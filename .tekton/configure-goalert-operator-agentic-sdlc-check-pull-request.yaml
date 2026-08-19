@@ -1,3 +1,6 @@
+# boilerplate-skip-pipeline-centralization: This pipeline is intentionally customized
+# with inline pipelineSpec and trusted 3-segment task bundle versions for KONFLUX-15387.
+# See commit d212839 for details.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
