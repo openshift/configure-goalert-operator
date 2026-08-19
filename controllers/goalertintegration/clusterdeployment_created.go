@@ -19,6 +19,7 @@ package goalertintegration
 //goland:noinspection SpellCheckingInspection
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/openshift/configure-goalert-operator/pkg/localmetrics"
@@ -31,8 +32,12 @@ import (
 	"github.com/pingcap/errors"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -129,7 +134,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	if highSvcID != "" && lowSvcID != "" {
 		// save config map
 		newCM := kube.GenerateConfigMap(cd.Namespace, configMapName, highSvcID, lowSvcID, heartbeatMonitorId)
-		if err := controllerutil.SetControllerReference(cd, newCM, r.Scheme); err != nil {
+		if err := setControllerReferenceWithoutBlockingDeletion(cd, newCM, r.Scheme); err != nil {
 			r.reqLogger.Error(err, "Error setting controller reference on configmap")
 			return err
 		}
@@ -151,7 +156,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 	secret := kube.GenerateGoalertSecret(cd.Namespace, secretName, highIntKey, lowIntKey, heartbeatMonitorKey)
 	r.reqLogger.Info("creating goalert secret", "ClusterDeployment.Namespace", cd.Namespace)
 	// add reference
-	if err := controllerutil.SetControllerReference(cd, secret, r.Scheme); err != nil {
+	if err := setControllerReferenceWithoutBlockingDeletion(cd, secret, r.Scheme); err != nil {
 		r.reqLogger.Error(err, "Error setting controller reference on secret", "ClusterDeployment.Namespace", cd.Namespace)
 		return err
 	}
@@ -192,7 +197,7 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		}
 		r.reqLogger.Info("syncset not found , create a new one on this ")
 		ss = kube.GenerateSyncSet(cd.Namespace, cd.Name, secret, gi)
-		if err := controllerutil.SetControllerReference(cd, ss, r.Scheme); err != nil {
+		if err := setControllerReferenceWithoutBlockingDeletion(cd, ss, r.Scheme); err != nil {
 			r.reqLogger.Error(err, "Error setting controller reference on syncset", "ClusterDeployment.Namespace", cd.Namespace)
 			return err
 		}
@@ -208,4 +213,30 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 func getClusterID(cd *hivev1.ClusterDeployment) string {
 	uid := strings.Split(cd.Namespace, "-")
 	return "fedramp-" + uid[len(uid)-1]
+}
+
+// setControllerReferenceWithoutBlockingDeletion sets the ClusterDeployment as controller/owner of the given object without blockOwnerDeletion.
+// This is safe because the operator uses finalizers for cleanup, not garbage collection.
+func setControllerReferenceWithoutBlockingDeletion(owner, controlled metav1.Object, scheme *runtime.Scheme) error {
+	ro, ok := owner.(runtime.Object)
+	if !ok {
+		return fmt.Errorf("%T is not a runtime.Object, cannot call SetControllerReference", owner)
+	}
+
+	gvk, err := apiutil.GVKForObject(ro, scheme)
+	if err != nil {
+		return err
+	}
+
+	ref := metav1.OwnerReference{
+		APIVersion:         gvk.GroupVersion().String(),
+		Kind:               gvk.Kind,
+		Name:               owner.GetName(),
+		UID:                owner.GetUID(),
+		BlockOwnerDeletion: ptr.To(false),
+		Controller:         ptr.To(true),
+	}
+
+	controlled.SetOwnerReferences(append(controlled.GetOwnerReferences(), ref))
+	return nil
 }

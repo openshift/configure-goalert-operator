@@ -30,7 +30,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -395,7 +394,7 @@ func (r *GoalertIntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	r.gclient = goalert.NewClient
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&goalertv1alpha1.GoalertIntegration{}).
-		Watches(&source.Kind{Type: &hivev1.ClusterDeployment{}}, &enqueueRequestForClusterDeployment{
+		Watches(&hivev1.ClusterDeployment{}, &enqueueRequestForClusterDeployment{
 			Client: mgr.GetClient(),
 		}).
 		Complete(r)

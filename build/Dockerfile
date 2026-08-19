@@ -1,4 +1,4 @@
-FROM quay.io/redhat-services-prod/openshift/boilerplate:image-v8.3.6 AS builder
+FROM quay.io/redhat-services-prod/openshift/boilerplate:image-v8.4.3 AS builder
 
 WORKDIR /workdir
 COPY go.mod go.mod
@@ -8,7 +8,7 @@ COPY . .
 RUN make go-build
 
 ####
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1785906621
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1786987521
 
 ENV USER_UID=1001 \
     USER_NAME=configure-goalert-operator

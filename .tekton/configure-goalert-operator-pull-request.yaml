@@ -6,8 +6,8 @@ metadata:
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
-    pipelinesascode.tekton.dev/cancel-in-progress: "true"
-    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/cancel-in-progress: 'true'
+    pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
       == "main"
     pipelinesascode.tekton.dev/pipeline: https://github.com/RedHatInsights/konflux-pipelines/raw/main/pipelines/docker-build-oci-ta.yaml
@@ -32,8 +32,6 @@ spec:
     value: build/Dockerfile
   - name: path-context
     value: .
-  pipelineRef:
-    name: docker-build-oci-ta
   taskRunTemplate:
     serviceAccountName: build-pipeline-configure-goalert-operator
   workspaces:
@@ -51,4 +49,13 @@ spec:
   - name: git-auth
     secret:
       secretName: '{{ git_auth_secret }}'
+  pipelineRef:
+    resolver: git
+    params:
+    - name: url
+      value: https://github.com/openshift/boilerplate
+    - name: revision
+      value: master
+    - name: pathInRepo
+      value: pipelines/docker-build-oci-ta/pipeline.yaml
 status: {}
