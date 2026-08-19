@@ -349,6 +349,8 @@ func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context
 }
 
 // cgaoResourcesExist checks whether the ConfigMap, Secret, and SyncSet for a ClusterDeployment already exist.
+// The Secret check is content-aware: a Secret that is present but has empty high, low, or heartbeat
+// integration keys is treated as not existing so the next reconcile will re-create it and self-heal.
 func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
 	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
 
@@ -361,13 +363,17 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	cmExists = !errors.IsNotFound(err)
 
 	secretExist := false
-	err = r.Get(ctx,
-		types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace},
-		&corev1.Secret{})
+	sc := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, sc)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
-	secretExist = !errors.IsNotFound(err)
+	if err == nil &&
+		len(sc.Data[config.GoalertHighIntKey]) > 0 &&
+		len(sc.Data[config.GoalertLowIntKey]) > 0 &&
+		len(sc.Data[config.GoalertHeartbeatIntKey]) > 0 {
+		secretExist = true
+	}
 
 	syncSetExist := false
 	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})

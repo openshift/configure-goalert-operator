@@ -178,14 +178,24 @@ func (r *GoalertIntegrationReconciler) handleCreate(ctx context.Context, gclient
 		if err := r.Create(ctx, newCM); err != nil {
 			if errors.IsAlreadyExists(err) {
 				if updateErr := r.Update(ctx, newCM); updateErr != nil {
-					r.reqLogger.Error(err, "Error updating existing configmap", "Name", configMapName)
-					return err
+					r.reqLogger.Error(updateErr, "Error updating existing configmap", "Name", configMapName)
+					return updateErr
 				}
-				return nil
+			} else {
+				r.reqLogger.Error(err, "Error creating configmap", "Name", configMapName)
+				return err
 			}
-			r.reqLogger.Error(err, "Error creating configmap", "Name", configMapName)
-			return err
 		}
+	}
+
+	// Refuse to write a goalert secret with empty integration key(s). An empty
+	// secret breaks alerting on the managed cluster, so return an error to
+	// requeue and re-fetch the keys on the next reconcile.
+	if highIntKey == "" || lowIntKey == "" || heartbeatMonitorKey == "" {
+		err := fmt.Errorf("refusing to write goalert secret with empty integration key(s) (high=%t low=%t heartbeat=%t)",
+			highIntKey != "", lowIntKey != "", heartbeatMonitorKey != "")
+		r.reqLogger.Error(err, "empty integration key(s); requeuing", "ClusterDeployment.Namespace", cd.Namespace)
+		return err
 	}
 
 	// add secret part
