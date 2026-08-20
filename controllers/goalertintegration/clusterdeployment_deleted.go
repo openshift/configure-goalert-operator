@@ -118,7 +118,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	}
 
 	if deleteSecret {
-		r.reqLogger.Info("Deleting Goalert secret for", "clusterdeployment: ", cd.Name)
+		r.reqLogger.Info("Deleting Goalert secret for", "clusterdeployment", cd.Name)
 		secretToRemove.Name = config.SecretName
 		secretToRemove.Namespace = cd.Namespace
 		err = r.Delete(ctx, secretToRemove)
