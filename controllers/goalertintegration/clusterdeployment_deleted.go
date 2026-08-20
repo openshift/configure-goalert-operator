@@ -84,7 +84,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 			}
 		}
 
-		r.reqLogger.Info("Deleting Goalert configmap for", "clusterdeployment:", cd.Name)
+		r.reqLogger.Info("Deleting Goalert configmap for", "clusterdeployment", cd.Name)
 		cmData.Namespace = cd.Namespace
 		err = r.Delete(ctx, cmData)
 		if err != nil {
@@ -101,7 +101,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 			r.reqLogger.Error(err, "unable to reconcile secret for", "clusterdeployment", cd.Name)
 			return err
 		}
-		r.reqLogger.Info("unable to locate goalert secret for cluster deployment, moving on", "clusterdeployment:", cd.Name)
+		r.reqLogger.Info("unable to locate goalert secret for cluster deployment, moving on", "clusterdeployment", cd.Name)
 		deleteSecret = false
 	}
 
@@ -118,7 +118,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	}
 
 	if deleteSecret {
-		r.reqLogger.Info("Deleting Goalert secret for", "clusterdeployment: ", cd.Name)
+		r.reqLogger.Info("Deleting Goalert secret for", "clusterdeployment", cd.Name)
 		secretToRemove.Name = config.SecretName
 		secretToRemove.Namespace = cd.Namespace
 		err = r.Delete(ctx, secretToRemove)
@@ -129,7 +129,7 @@ func (r *GoalertIntegrationReconciler) handleDelete(ctx context.Context, gclient
 	}
 
 	if deleteSyncset {
-		r.reqLogger.Info("Deleting Goalert syncset for", "clusterdeployment:", cd.Name)
+		r.reqLogger.Info("Deleting Goalert syncset for", "clusterdeployment", cd.Name)
 		ssToRemove.Name = config.SecretName
 		ssToRemove.Namespace = cd.Namespace
 		err = r.Delete(ctx, ssToRemove)

@@ -361,7 +361,7 @@ func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context
 // The Secret check is content-aware: a Secret that is present but has empty high, low, or heartbeat
 // integration keys is treated as not existing so the next reconcile will re-create it and self-heal.
 func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
-	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
+	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment", cd.Name)
 
 	cmExists := false
 	cmName := config.Name(gi.Spec.ServicePrefix, cd.Name, config.ConfigMapSuffix)
