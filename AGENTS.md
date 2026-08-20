@@ -68,7 +68,7 @@ When adding `//nolint` directives, target only these linters.
 |---|---|
 | `api/v1alpha1/` | CRD types (`GoalertIntegration`). See [API Contracts](docs/api-contracts-guidelines.md) for schema details. |
 | `controllers/goalertintegration/` | Reconciler split across 5 files: main loop, create handler, delete handler, event handlers, heartbeat check. |
-| `pkg/goalert/` | Raw HTTP/GraphQL client. Implements `Client` interface. See [Integration Guidelines](docs/integration-guidelines.md). |
+| `pkg/goalert/` | Raw HTTP/GraphQL client. Implements `Client` interface (9 methods: create, read, delete operations for services/keys/monitors). See [Integration Guidelines](docs/integration-guidelines.md). |
 | `pkg/kube/` | Helpers to build ConfigMap, Secret, and SyncSet resources. |
 | `pkg/localmetrics/` | Prometheus gauges/histograms prefixed `cgao_`. See [API Contracts](docs/api-contracts-guidelines.md#prometheus-metrics-contract). |
 | `pkg/utils/` | `LoadSecretData` helper for reading Secret keys (in `secrets.go`). |
@@ -81,7 +81,7 @@ When adding `//nolint` directives, target only these linters.
 ### Key Dependencies
 
 - Go `1.24.0` (from `go.mod`)
-- `sigs.k8s.io/controller-runtime` v0.13.0
+- `sigs.k8s.io/controller-runtime` v0.19.0
 - `github.com/openshift/hive/apis` -- ClusterDeployment, SyncSet types
 - `github.com/openshift/operator-custom-metrics` -- Custom metrics server (replaces controller-runtime metrics)
 - `github.com/pingcap/errors` -- Legacy; used in `clusterdeployment_created.go` and `heartbeatmonitor_check.go` only
@@ -95,7 +95,7 @@ When adding `//nolint` directives, target only these linters.
 4. Check heartbeat monitors for matching CDs
 5. Handle GI deletion: clean up all CDs with matching finalizer
 6. Handle CD deletion / label un-match: delete GoAlert services
-7. Handle CD creation: if ConfigMap/Secret/SyncSet don't exist, call `handleCreate`
+7. Handle CD creation: if ConfigMap, Secret (content-aware: empty integration keys treated as not-existing), or SyncSet don't exist, call `handleCreate` which uses get-or-create to adopt pre-existing GoAlert resources
 
 For detailed create/delete ordering and cleanup logic, see [Integration Guidelines](docs/integration-guidelines.md).
 

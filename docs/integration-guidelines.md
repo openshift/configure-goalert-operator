@@ -4,9 +4,18 @@
 
 ### Client Interface and Injection
 
-The `goalert.Client` interface in `pkg/goalert/service.go` defines all GoAlert API operations. The reconciler stores a factory function `gclient func(sessionCookie *http.Cookie) goalert.Client` rather than a client instance directly. `SetupWithManager` assigns `goalert.NewClient` as the default factory; this pattern allows tests to inject mock clients.
+The `goalert.Client` interface in `pkg/goalert/service.go` defines all GoAlert API operations (9 methods, including the 3 read queries described below). The reconciler stores a factory function `gclient func(sessionCookie *http.Cookie) goalert.Client` rather than a client instance directly. `SetupWithManager` assigns `goalert.NewClient` as the default factory; this pattern allows tests to inject mock clients.
 
 All GraphQL calls go through `Client.NewRequest`, which reads `GOALERT_ENDPOINT_URL` from the environment, POSTs to `/api/graphql`, and attaches the session cookie. GoAlert GraphQL API calls should use this interface. Authentication to `/api/v2/identity/providers/basic` is performed in the controller's `authGoalert` method.
+
+### Read Methods and Exact Name Matching
+
+Three read methods enable idempotent resource creation:
+- `GetServiceIDByName(ctx, name) (string, error)` -- searches for a service by name, returns its ID or `""` if not found
+- `GetIntegrationKeyHref(ctx, serviceID, keyName, keyType) (string, error)` -- finds an integration key by name on a service, returns href or `""`
+- `GetHeartbeatMonitor(ctx, serviceID, monitorName) (href, id, error)` -- finds a heartbeat monitor by name on a service, returns both href and id, or `("", "")`
+
+GoAlert's search API is fuzzy/substring-based, so these methods perform **exact client-side name matching** after the query. A successful no-match returns an empty string (or empty strings) with `nil` error. Only transport failures, unmarshal errors, or GraphQL `errors` array entries produce a non-nil error. This contract allows callers to distinguish "resource does not exist" (empty string) from "lookup failed" (non-nil error).
 
 ### GraphQL Mutation Pattern
 
@@ -22,18 +31,18 @@ Authentication is a two-step process performed every reconcile (the session cook
 
 `handleCreate` creates GoAlert resources in this strict order:
 1. **Add finalizer** to ClusterDeployment (via patch, returns early if added)
-2. **Create High service** (`CreateService`)
-3. **Create Low service** (`CreateService`)
-4. **Create High integration key** (`CreateIntegrationKey` with type `prometheusAlertmanager`)
-5. **Create Low integration key** (`CreateIntegrationKey`)
-6. **Create heartbeat monitor** (`CreateHeartbeatMonitor` on the High service, 15-minute timeout)
-7. **Create ConfigMap** (stores `HIGH_SERVICE_ID`, `LOW_SERVICE_ID`, `HEARTBEATMONITOR_ID`)
-8. **Create Secret** (stores integration key URLs and heartbeat key)
-9. **Create SyncSet** (references the Secret for propagation)
+2. **Ensure High service** (`ensureService` helper: GET via `GetServiceIDByName`, create via `CreateService` only if absent)
+3. **Ensure Low service** (`ensureService`)
+4. **Ensure High integration key** (`ensureIntegrationKey` helper: GET via `GetIntegrationKeyHref`, create via `CreateIntegrationKey` only if absent; type `prometheusAlertmanager`)
+5. **Ensure Low integration key** (`ensureIntegrationKey`)
+6. **Ensure heartbeat monitor** (`ensureHeartbeatMonitor` helper: GET via `GetHeartbeatMonitor`, create via `CreateHeartbeatMonitor` only if absent; on the High service, 15-minute timeout)
+7. **Create or update ConfigMap** (stores `HIGH_SERVICE_ID`, `LOW_SERVICE_ID`, `HEARTBEATMONITOR_ID`). If `AlreadyExists`, call `Update` and fall through (do not return early).
+8. **Guard and create Secret** -- before calling `Create`, verify all three integration key hrefs are non-empty. If any are empty, return an error (never persist an empty secret, which would break alerting); the reconcile loop accumulates this error and, after processing every matching CD, requeues with backoff so the keys are re-fetched. If Secret `AlreadyExists`, compare data; if changed, delete and recreate.
+9. **Create SyncSet** (references the Secret for propagation). Uses `Get`-then-create approach.
 
 Each step depends on IDs/keys from previous steps. If any GoAlert API call fails, return the error immediately -- do not create partial K8s resources.
 
-**Retry/idempotency caveat:** On failure, the reconciler requeues and re-enters `handleCreate` from the top. The GoAlert API calls are not idempotent -- there is no check for whether a service already exists before creating one. A failure after step 2 but before step 7 (ConfigMap creation) will produce orphaned GoAlert services on retry, since the operator has no record of the previously created IDs. There is no circuit breaker; retries continue indefinitely via the controller-runtime work queue.
+**Idempotency via get-or-create:** Steps 2-6 use `ensure*` helpers that adopt pre-existing GoAlert resources (by exact name match), making reconcile idempotent. A retry after partial failure will reuse existing services/keys/monitors instead of creating duplicates or hitting duplicate-name rejections. The ConfigMap and Secret creation logic (steps 7-8) similarly handle `AlreadyExists` to avoid errors on retry.
 
 ### GoAlert Resource Deletion Order
 
@@ -97,7 +106,7 @@ Finalizer removal and GoAlert cleanup (`handleDelete`) is triggered by three con
 
 - **CD finalizer add:** Uses `client.MergeFrom(cd.DeepCopy())` patch, not a full Update. Returns early after patching so the next reconcile continues creation.
 - **CD finalizer remove:** Also uses MergeFrom patch in `handleDelete`.
-- **GI finalizer add/remove:** Uses `r.Update(ctx, gi)`. 
+- **GI finalizer add/remove:** Uses `r.Update(ctx, gi)`.
 
 ## Heartbeat Monitoring
 
@@ -127,3 +136,5 @@ controllerutil.SetControllerReference(cd, resource, r.Scheme)
 ## Existence Check Pattern
 
 `cgaoResourcesExist` checks for ConfigMap, Secret, and SyncSet before calling `handleCreate`. Creation is triggered when **any** of the three is missing. Each check uses `r.Get` and distinguishes between NotFound (resource missing) and other errors (return error to requeue). This is the gating mechanism for idempotent reconciliation -- if all three exist, no GoAlert API calls are made.
+
+**Content-aware Secret check (self-heal):** The Secret existence check is not a simple presence check. A Secret that is present but has empty or missing data for any of the three integration key fields (`GOALERT_URL_HIGH`, `GOALERT_URL_LOW`, `GOALERT_HEARTBEAT`) is treated as **not existing**, triggering a re-entry into `handleCreate` on the next reconcile. This self-heals a deployed-but-empty secret without requiring manual GoAlert resource cleanup.

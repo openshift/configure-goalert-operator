@@ -17,7 +17,7 @@ return r.requeueOnErr(err)
 - `requeueOnErr` -- any error fetching the GI, listing ClusterDeployments, updating finalizers, or failing `handleDelete` during GI/CD deletion.
 - Direct `return reconcile.Result{}, err` -- used only from `cgaoResourcesExist` for unexpected K8s API errors. Keep this limited; prefer the helpers.
 
-**Note:** The main reconcile loop ends with `return ctrl.Result{}, nil` (equivalent to `doNotRequeue`). Errors from `handleCreate` in the creation loop are logged but do **not** cause a requeue -- they use a log-and-continue pattern. This is intentional: a single failing CD should not block progress on others.
+**Note:** The main reconcile loop's creation phase uses a **continue-then-aggregate-and-requeue** pattern. Errors from `handleCreate` are logged per ClusterDeployment and the loop continues, so a single failing CD does not block progress on the others. After the loop, if any CD failed, the accumulated errors are combined with `utilerrors.NewAggregate` and returned through `requeueOnErr`, so the reconcile requeues with exponential backoff (prompt self-heal). When every CD succeeds, the loop ends with `return ctrl.Result{}, nil` (equivalent to `doNotRequeue`).
 
 ## Log-and-Continue vs Log-and-Return
 
@@ -28,7 +28,7 @@ The codebase uses two distinct error-handling strategies in the main `Reconcile(
 Used when a failure for one item should not block processing of other items, or when the operation will be retried on the next reconcile anyway:
 - Credential loading failures (`LoadSecretData` for username/password)
 - Heartbeat monitor checks per ClusterDeployment
-- `handleCreate` failures for individual CDs in the creation loop
+- `handleCreate` failures for individual CDs in the creation loop -- logged and the loop **continues** to the next CD, but the error is also accumulated and returned after the loop (continue-then-aggregate-and-requeue; see the Note under *Reconcile Return Helpers*)
 - `handleDelete` for unmatched CDs (label removed, not CD-deletion or GI-deletion)
 
 ### Log-and-return (stop and requeue)
@@ -72,9 +72,23 @@ if err := r.Create(ctx, resource); err != nil {
 }
 ```
 
-The ConfigMap uses this to fall through to an `Update` call. The Secret uses it to compare data and conditionally delete-then-recreate. The SyncSet does a `Get`-first approach instead (it queries before creating). Follow the existing pattern for the resource type you are modifying.
+The ConfigMap uses this to call `Update` on `AlreadyExists` and **fall through** to the Secret and SyncSet reconciliation (previously it returned early, skipping them). The Secret uses it to compare data and conditionally delete-then-recreate. The SyncSet does a `Get`-first approach instead (it queries before creating). Follow the existing pattern for the resource type you are modifying.
 
 **Important:** `handleCreate` uses `"github.com/pingcap/errors"` for `IsAlreadyExists`/`IsNotFound`, while `handleDelete` and the main controller use `"k8s.io/apimachinery/pkg/api/errors"`. Both provide the same `IsNotFound`/`IsAlreadyExists` methods. New code should prefer `"k8s.io/apimachinery/pkg/api/errors"` (the standard K8s package) for consistency with the main controller and delete handler. The `pingcap/errors` usage in `clusterdeployment_created.go` and `heartbeatmonitor_check.go` is legacy.
+
+### Refuse-to-Write-Empty Pattern
+
+Before creating the `goalert-secret`, `handleCreate` verifies that all three integration key hrefs are non-empty. If any are empty, it returns an error to trigger a requeue:
+
+```go
+if highIntKey == "" || lowIntKey == "" || heartbeatMonitorKey == "" {
+    err := fmt.Errorf("refusing to write goalert secret with empty integration key(s) (high=%t low=%t heartbeat=%t)", ...)
+    r.reqLogger.Error(err, "empty integration key(s); requeuing", ...)
+    return err  // requeue
+}
+```
+
+This prevents persisting a broken secret (which would break alerting on the managed cluster). The next reconcile re-fetches the keys from GoAlert. The log message uses boolean conversions (`highIntKey != ""`) to avoid logging secret values.
 
 ## Error Wrapping Conventions
 

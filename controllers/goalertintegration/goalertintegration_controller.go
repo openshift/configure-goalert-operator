@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -238,7 +239,11 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	// Create service in Goalert
+	// Create service in Goalert. A per-CD failure is logged and collected but
+	// does not abort the loop, so one failing ClusterDeployment cannot block the
+	// others. After the loop, any accumulated errors are aggregated and returned
+	// so the reconcile requeues with backoff (prompt self-heal).
+	var createErrs []error
 	for i := range matchingClusterDeployments.Items {
 		cd := matchingClusterDeployments.Items[i]
 		if cd.DeletionTimestamp == nil {
@@ -249,9 +254,13 @@ func (r *GoalertIntegrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 			if !cmExists || !secretExists || !syncsetExists {
 				if err = r.handleCreate(ctx, graphqlClient, gi, &cd); err != nil {
 					r.reqLogger.Error(err, "failing to register cluster with Goalert")
+					createErrs = append(createErrs, err)
 				}
 			}
 		}
+	}
+	if len(createErrs) > 0 {
+		return r.requeueOnErr(utilerrors.NewAggregate(createErrs))
 	}
 
 	return ctrl.Result{}, nil
@@ -349,6 +358,8 @@ func (r *GoalertIntegrationReconciler) getMatchingClusterDeployments(ctx context
 }
 
 // cgaoResourcesExist checks whether the ConfigMap, Secret, and SyncSet for a ClusterDeployment already exist.
+// The Secret check is content-aware: a Secret that is present but has empty high, low, or heartbeat
+// integration keys is treated as not existing so the next reconcile will re-create it and self-heal.
 func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, gi *goalertv1alpha1.GoalertIntegration, cd *hivev1.ClusterDeployment) (bool, bool, bool, error) {
 	r.reqLogger.Info("Checking for CGAO resources", "clusterdeployment:", cd.Name)
 
@@ -361,13 +372,17 @@ func (r *GoalertIntegrationReconciler) cgaoResourcesExist(ctx context.Context, g
 	cmExists = !errors.IsNotFound(err)
 
 	secretExist := false
-	err = r.Get(ctx,
-		types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace},
-		&corev1.Secret{})
+	sc := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, sc)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, false, false, err
 	}
-	secretExist = !errors.IsNotFound(err)
+	if err == nil &&
+		len(sc.Data[config.GoalertHighIntKey]) > 0 &&
+		len(sc.Data[config.GoalertLowIntKey]) > 0 &&
+		len(sc.Data[config.GoalertHeartbeatIntKey]) > 0 {
+		secretExist = true
+	}
 
 	syncSetExist := false
 	err = r.Get(ctx, types.NamespacedName{Name: config.SecretName, Namespace: cd.Namespace}, &hivev1.SyncSet{})

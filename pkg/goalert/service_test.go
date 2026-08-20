@@ -151,8 +151,8 @@ func Test_CreateService(t *testing.T) {
 				EscalationPolicyID: "123-bad",
 			},
 			expectedID:  "",
-			respData:    []byte(`{"data":{"createService":null}}`),
-			expectedErr: false,
+			respData:    []byte(`{"data":{"createService":null},"errors":[{"message":"escalation policy not found"}]}`),
+			expectedErr: true,
 		},
 		{
 			name: "Failed unmarshalling response",
@@ -229,8 +229,8 @@ func Test_CreateIntegrationKey(t *testing.T) {
 				Name: "Test Integration Key",
 			},
 			expectedKey: "",
-			respData:    []byte(`{"data":{"createIntegrationKey":null}}`),
-			expectedErr: false,
+			respData:    []byte(`{"data":{"createIntegrationKey":null},"errors":[{"message":"service not found"}]}`),
+			expectedErr: true,
 		},
 		{
 			name: "Failed unmarshalling response",
@@ -308,8 +308,8 @@ func Test_CreateHeartbeatMonitor(t *testing.T) {
 			},
 			expectedKey: "",
 			expectedId:  "",
-			respData:    []byte(`{"data":{"createHeartbeatMonitor":null}}`),
-			expectedErr: false,
+			respData:    []byte(`{"data":{"createHeartbeatMonitor":null},"errors":[{"message":"service not found"}]}`),
+			expectedErr: true,
 		},
 		{
 			name: "Failed unmarshalling response",
@@ -409,6 +409,242 @@ func TestDeleteService(t *testing.T) {
 			if test.expectedErr {
 				assert.NotNil(t, err)
 			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+func Test_GetServiceIDByName(t *testing.T) {
+
+	tests := []struct {
+		name        string
+		searchName  string
+		expectedID  string
+		respData    []byte
+		expectedErr bool
+	}{
+		{
+			name:       "Exact name match among fuzzy results returns matching id not first node",
+			searchName: "fedramp-abc123 - High",
+			expectedID: "high-id",
+			// Low is listed first; the impl must scan for the exact-name match rather
+			// than returning nodes[0].
+			respData:    []byte(`{"data":{"services":{"nodes":[{"id":"low-id","name":"fedramp-abc123 - Low"},{"id":"high-id","name":"fedramp-abc123 - High"}]}}}`),
+			expectedErr: false,
+		},
+		{
+			name:        "No matching service returns empty and no error",
+			searchName:  "fedramp-abc123 - High",
+			expectedID:  "",
+			respData:    []byte(`{"data":{"services":{"nodes":[]}}}`),
+			expectedErr: false,
+		},
+		{
+			name:        "GraphQL errors array returns error",
+			searchName:  "fedramp-abc123 - High",
+			expectedID:  "",
+			respData:    []byte(`{"data":{"services":null},"errors":[{"message":"boom"}]}`),
+			expectedErr: true,
+		},
+		{
+			name:        "Failed unmarshalling response",
+			searchName:  "fedramp-abc123 - High",
+			expectedID:  "",
+			respData:    []byte(`garbagebody`),
+			expectedErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
+
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			actualID, err := mockClient.GetServiceIDByName(ctx, test.searchName)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expectedID, actualID)
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+func Test_GetIntegrationKeyHref(t *testing.T) {
+
+	tests := []struct {
+		name         string
+		serviceID    string
+		keyName      string
+		keyType      string
+		expectedHref string
+		respData     []byte
+		expectedErr  bool
+	}{
+		{
+			name:         "Found integration key by name returns its href",
+			serviceID:    "svc-1",
+			keyName:      "High alerts",
+			keyType:      "prometheusAlertmanager",
+			expectedHref: "/api/v2/generic/incoming?token=high",
+			respData:     []byte(`{"data":{"service":{"integrationKeys":[{"id":"k1","name":"Low alerts","type":"prometheusAlertmanager","href":"/api/v2/generic/incoming?token=low"},{"id":"k2","name":"High alerts","type":"prometheusAlertmanager","href":"/api/v2/generic/incoming?token=high"}]}}}`),
+			expectedErr:  false,
+		},
+		{
+			name:         "No matching integration key returns empty and no error",
+			serviceID:    "svc-1",
+			keyName:      "High alerts",
+			keyType:      "prometheusAlertmanager",
+			expectedHref: "",
+			respData:     []byte(`{"data":{"service":{"integrationKeys":[]}}}`),
+			expectedErr:  false,
+		},
+		{
+			name:         "GraphQL errors array returns error",
+			serviceID:    "svc-1",
+			keyName:      "High alerts",
+			keyType:      "prometheusAlertmanager",
+			expectedHref: "",
+			respData:     []byte(`{"data":{"service":null},"errors":[{"message":"boom"}]}`),
+			expectedErr:  true,
+		},
+		{
+			name:         "Failed unmarshalling response",
+			serviceID:    "svc-1",
+			keyName:      "High alerts",
+			keyType:      "prometheusAlertmanager",
+			expectedHref: "",
+			respData:     []byte(`garbagebody`),
+			expectedErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
+
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			href, err := mockClient.GetIntegrationKeyHref(ctx, test.serviceID, test.keyName, test.keyType)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expectedHref, href)
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+func Test_GetHeartbeatMonitor(t *testing.T) {
+
+	tests := []struct {
+		name         string
+		serviceID    string
+		monitorName  string
+		expectedHref string
+		expectedId   string
+		respData     []byte
+		expectedErr  bool
+	}{
+		{
+			name:         "Found heartbeat monitor by name returns href and id",
+			serviceID:    "svc-1",
+			monitorName:  "fedramp-abc123",
+			expectedHref: "/api/v2/heartbeat/abc",
+			expectedId:   "hb-1",
+			respData:     []byte(`{"data":{"service":{"heartbeatMonitors":[{"id":"hb-1","name":"fedramp-abc123","href":"/api/v2/heartbeat/abc"}]}}}`),
+			expectedErr:  false,
+		},
+		{
+			name:         "No matching heartbeat monitor returns empty and no error",
+			serviceID:    "svc-1",
+			monitorName:  "fedramp-abc123",
+			expectedHref: "",
+			expectedId:   "",
+			respData:     []byte(`{"data":{"service":{"heartbeatMonitors":[]}}}`),
+			expectedErr:  false,
+		},
+		{
+			name:         "GraphQL errors array returns error",
+			serviceID:    "svc-1",
+			monitorName:  "fedramp-abc123",
+			expectedHref: "",
+			expectedId:   "",
+			respData:     []byte(`{"data":{"service":null},"errors":[{"message":"boom"}]}`),
+			expectedErr:  true,
+		},
+		{
+			name:         "Failed unmarshalling response",
+			serviceID:    "svc-1",
+			monitorName:  "fedramp-abc123",
+			expectedHref: "",
+			expectedId:   "",
+			respData:     []byte(`garbagebody`),
+			expectedErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resp := test.respData
+
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write(resp); err != nil {
+					t.Fatalf("Unexpected error writing response from httptest server")
+				}
+			}))
+			defer mockServer.Close()
+
+			t.Setenv(config.GoalertApiEndpointEnvVar, mockServer.URL)
+			mockClient := &GraphqlClient{
+				sessionCookie: &http.Cookie{
+					Name: "test_cookie",
+				},
+				httpClient: mockServer.Client(),
+			}
+
+			href, id, err := mockClient.GetHeartbeatMonitor(ctx, test.serviceID, test.monitorName)
+			if test.expectedErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expectedHref, href)
+				assert.Equal(t, test.expectedId, id)
 				assert.Nil(t, err)
 			}
 		})
