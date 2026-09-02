@@ -4,3 +4,8 @@ knowledge_base:
   code_guidelines:
     filePatterns:
       - "docs/*-guidelines.md"
+
+reviews:
+  path_filters:
+    # Exclude boilerplate changes from review
+    - "!boilerplate/**"
